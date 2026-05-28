@@ -67,7 +67,7 @@ export default function QuickstartPage() {
         </p>
 
         <pre className="code-block">
-{`VSECRETS_BASE_URL=https://v-secrets-api-production.up.railway.app
+{`VSECRETS_BASE_URL=https://api.vsecrets.dev
 VSECRETS_PROJECT_ID=your-project-id
 VSECRETS_API_KEY=vsec_live_xxxxx`}
         </pre>
