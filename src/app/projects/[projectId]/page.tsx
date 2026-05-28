@@ -155,7 +155,7 @@ export default function ProjectDetailPage() {
     }, 1800);
   }
 
-  const baseUrl = "https://v-secrets-api-production.up.railway.app";
+  const baseUrl = "https://api.vsecrets.dev";
 
   const envSnippet = `VSECRETS_BASE_URL=${baseUrl}
   VSECRETS_PROJECT_ID=${projectId}
