@@ -9,9 +9,9 @@ import { Button } from "@/components/Button";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [fullName, setFullName] = useState("Test User");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("SecurePass123!");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -86,6 +86,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
+              placeholder="Create a strong password"
             />
           </div>
 
