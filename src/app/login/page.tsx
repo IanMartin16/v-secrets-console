@@ -73,7 +73,7 @@ export default function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
-              placeholder="Create a strong password"
+              placeholder="Enter your password"
             />
           </div>
 
