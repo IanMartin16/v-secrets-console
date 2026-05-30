@@ -41,11 +41,37 @@ export default function DashboardPage() {
     return value === null || value === undefined ? "Unlimited" : String(value);
   }
 
+  function getFirstName(fullName?: string | null) {
+    if (!fullName) return "Developer";
+
+    const cleanName = fullName.trim();
+
+    if (!cleanName) return "Developer";
+
+    return cleanName.split (" ")[0];
+  }
+
   return (
     <AppShell>
-      <section className="hero">
-        <h1>Welcome back{user?.full_name ? `, ${user.full_name}` : ""}</h1>
-        <p>Manage encrypted application secrets and runtime access keys.</p>
+      <section className="hero overview-hero">
+        <p className="hero-eyebrow">
+          Encrypted secrets • Scoped runtime access
+        </p>
+
+        <h1>
+          Welcome back,{" "}
+          <span className="hero-name">{getFirstName(user?.full_name)}</span>
+        </h1>
+
+        <p>
+          Manage encrypted secrets and runtime keys across your applications.
+        </p>
+
+        <div className="hero-pills">
+          <span className="hero-pill">Encrypted at rest</span>
+          <span className="hero-pill">Runtime keys</span>
+          <span className="hero-pill">API-first</span>
+        </div>
       </section>
 
       {error ? <div className="error section">{error}</div> : null}
