@@ -134,7 +134,7 @@ export default function DocsPage() {
         </p>
 
         <a
-          href="https://api.vsecrets.dev/docs"
+          href="https://api.vsecrets.dev/api/v1/docs"
           target="_blank"
           rel="noreferrer"
         >
