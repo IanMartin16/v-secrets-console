@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useEffect } from "react";
 import { register } from "@/lib/api";
@@ -48,13 +49,14 @@ export default function RegisterPage() {
     <main className="auth-page">
       <section className="auth-card">
         <div className="auth-logo">
-          <div className="logo-mark">V</div>
-          <div>
-            <strong>V-Secrets</strong>
-            <div style={{ color: "var(--muted)", fontSize: 13 }}>
-              Developer Secrets Manager
-            </div>
-          </div>
+          <Image
+            src="/vsecrets-logo.png"
+            alt="V-Secrets"
+            width={260}
+            height={80}
+            className="sidebar-logo"
+            priority
+          />
         </div>
 
         <h1>Create account</h1>
