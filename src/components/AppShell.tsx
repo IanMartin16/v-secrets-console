@@ -53,7 +53,21 @@ export function AppShell({ title = "V-Secrets Console", children }: AppShellProp
               </button>
             </div>
           </header>
-          <div className="content">{children}</div>
+          <div className="content">
+            {children}
+
+            <footer className="app-footer">
+              <div>
+                <strong>V-Secrets</strong>
+                <span>Developer Secrets Manager</span>
+              </div>
+
+              <div>
+                Powered by<a href="https://evilink.dev">evi_link devs</a>
+                <span>v1.0 soft launch</span>
+              </div>
+            </footer>
+          </div>
         </main>
       </div>
     </AuthGuard>

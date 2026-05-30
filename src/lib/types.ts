@@ -92,3 +92,24 @@ export type ApiKeyCreateResponse = {
   expires_at?: string | null;
 };
 
+export type AuditLog = {
+  id: string;
+  user_id?: string | null;
+  project_id?: string | null;
+  secret_id?: string | null;
+  action: string;
+  resource_type: string;
+  resource_id?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  api_key_id?: string | null;
+  request_method?: string | null;
+  request_path?: string | null;
+  status_code?: number | null;
+  event_metadata?: {
+    duration_ms?: number;
+    auth_method?: string;
+    [key: string]: unknown;
+  } | null;
+  created_at: string;
+};

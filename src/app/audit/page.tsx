@@ -1,35 +1,86 @@
-import { Activity, Eye, KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
-import { AppShell } from "@/components/AppShell";
+"use client";
 
-const exampleEvents = [
-  {
-    time: "Example",
-    actor: "runtime key",
-    action: "Reveal",
-    resource: "OPENAI_API_KEY",
-    status: "Success",
-  },
-  {
-    time: "Example",
-    actor: "owner",
-    action: "Create",
-    resource: "STRIPE_SECRET_KEY",
-    status: "Success",
-  },
-  {
-    time: "Example",
-    actor: "owner",
-    action: "Runtime Key",
-    resource: "nexus-runtime",
-    status: "Created",
-  },
-];
+import { useEffect, useState } from "react";
+import {
+  Activity,
+  Eye,
+  KeyRound,
+  LockKeyhole,
+  ShieldCheck,
+} from "lucide-react";
+import { AppShell } from "@/components/AppShell";
+import { getAuditLogs } from "@/lib/api";
+import type { AuditLog } from "@/lib/types";
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+function getStatusLabel(status?: number | null) {
+  if (!status) return "Unknown";
+  if (status >= 200 && status < 300) return "Success";
+  if (status === 401) return "Unauthorized";
+  if (status === 403) return "Forbidden";
+  if (status === 404) return "Not found";
+  if (status === 429) return "Rate limited";
+  if (status >= 500) return "Error";
+  return String(status);
+}
+
+function getAuthMethod(eventMetadata?: AuditLog["event_metadata"]) {
+  return eventMetadata?.auth_method || "unknown";
+}
+
+function getDuration(eventMetadata?: AuditLog["event_metadata"]) {
+  const duration = eventMetadata?.duration_ms;
+
+  if (typeof duration !== "number") return "—";
+
+  return `${Math.round(duration)}ms`;
+}
+
+function formatPath(path?: string | null) {
+  if (!path) return "—";
+  if (path.length <= 64) return path;
+
+  return `${path.slice(0, 34)}...${path.slice(-22)}`;
+}
 
 export default function AuditPage() {
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    queueMicrotask(() => {
+      getAuditLogs(50)
+        .then((items) => {
+          if (!active) return;
+          setLogs(items);
+        })
+        .catch((err) => {
+          if (!active) return;
+          setError(
+            err instanceof Error ? err.message : "Failed to load audit logs"
+          );
+        })
+        .finally(() => {
+          if (!active) return;
+          setLoading(false);
+        });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <AppShell title="Audit Logs">
       <section className="hero overview-hero">
-        <p className="hero-eyebrow">Security events • Coming next</p>
+        <p className="hero-eyebrow">Security events • Runtime activity</p>
         <h1>Audit visibility for sensitive actions</h1>
         <p>
           Track reveal events, runtime key usage and security-relevant project
@@ -50,8 +101,8 @@ export default function AuditPage() {
           </div>
           <h2>Reveal tracking</h2>
           <p>
-            Monitor when sensitive secret values are revealed by users or runtime
-            keys.
+            Monitor when sensitive secret values are revealed by users or
+            runtime keys.
           </p>
         </div>
 
@@ -81,47 +132,89 @@ export default function AuditPage() {
       <section className="section card quickstart-note">
         <strong>Backend audit events are active</strong>
         <p>
-          V-Secrets already records security-relevant backend events. This
-          Console view will expose filtering, project-level history and runtime
-          key activity in a future update.
+          V-Secrets records security-relevant backend events, including project,
+          secret, runtime key and user activity. This view shows recent events
+          associated with your account.
         </p>
       </section>
 
+      {error ? <div className="error section">{error}</div> : null}
+
       <section className="section card table-card">
-        <div style={{ padding: 22, borderBottom: "1px solid var(--border-soft)" }}>
-          <h2 style={{ margin: 0 }}>Example audit events</h2>
+        <div
+          style={{
+            padding: 22,
+            borderBottom: "1px solid var(--border-soft)",
+          }}
+        >
+          <h2 style={{ margin: 0 }}>Recent audit events</h2>
           <p style={{ color: "var(--muted)", margin: "6px 0 0" }}>
-            Preview of the events this page will surface.
+            Latest security-relevant events recorded by V-Secrets.
           </p>
         </div>
 
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Actor</th>
-              <th>Action</th>
-              <th>Resource</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {exampleEvents.map((event) => (
-              <tr key={`${event.action}-${event.resource}`}>
-                <td>{event.time}</td>
-                <td>{event.actor}</td>
-                <td>
-                  <span className="badge">{event.action}</span>
-                </td>
-                <td>{event.resource}</td>
-                <td>
-                  <span className="badge">{event.status}</span>
-                </td>
+        {loading ? (
+          <div className="empty">
+            <h3>Loading audit logs...</h3>
+            <p>Preparing recent security events.</p>
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="empty">
+            <h3>No audit events yet</h3>
+            <p>
+              Create a project, reveal a secret or generate a runtime key to see
+              events here.
+            </p>
+          </div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Event</th>
+                <th>Resource</th>
+                <th>Auth</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Path</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {logs.map((event) => (
+                <tr key={event.id}>
+                  <td>{formatDate(event.created_at)}</td>
+
+                  <td>
+                    <span className="badge">{event.action}</span>
+                  </td>
+
+                  <td>{event.resource_type || "unknown"}</td>
+
+                  <td>
+                    <span className="badge">
+                      {getAuthMethod(event.event_metadata)}
+                    </span>
+                  </td>
+
+                  <td>
+                    <span className="badge">
+                      {getStatusLabel(event.status_code)}
+                    </span>
+                  </td>
+
+                  <td>{getDuration(event.event_metadata)}</td>
+
+                  <td>
+                    <code title={event.request_path || ""}>
+                      {formatPath(event.request_path)}
+                    </code>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section className="section card">
@@ -129,7 +222,7 @@ export default function AuditPage() {
           <div>
             <h2>Planned audit controls</h2>
             <p style={{ color: "var(--muted)", margin: "6px 0 0" }}>
-              These controls are planned for the Console audit experience.
+              These controls are planned for the next audit experience.
             </p>
           </div>
         </div>

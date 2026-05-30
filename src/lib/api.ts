@@ -10,6 +10,7 @@ import type {
   SecretCreatePayload,
   SecretRevealResponse,
   UserProfile,
+  AuditLog,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_VSECRETS_API_URL;
@@ -140,4 +141,8 @@ export function createApiKey(payload: ApiKeyCreatePayload) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function getAuditLogs(limit = 50) {
+  return apiRequest<AuditLog[]>(`/audit-logs?limit=${limit}`);
 }
