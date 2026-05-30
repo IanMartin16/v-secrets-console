@@ -48,7 +48,8 @@ export default function DashboardPage() {
 
     if (!cleanName) return "Developer";
 
-    return cleanName.split (" ")[0];
+    const firstName = cleanName.split (" ")[0];
+    return firstName.charAt(0).toUpperCase() + firstName.slice(1);
   }
 
   return (

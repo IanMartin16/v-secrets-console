@@ -28,20 +28,31 @@ export function AppShell({ title = "V-Secrets Console", children }: AppShellProp
 
         <main className="main">
           <header className="topbar">
-            <h2>{title}</h2>
+            <div className="topbar-brand-title">
+              {title === "V-Secrets Console" ? (
+                <div>
+                  <h2>
+                    <span className="brand-v">V</span>
+                    <span>-Secrets Console</span>
+                  </h2>
+                  <p>Developer Secrets Manager</p>
+                </div>
+              ) : (
+                <h2>{title}</h2>
+              )}
+            </div>
             <div style={{ display: "flex", gap: 14, color: "var(--muted)" }}>
               <Bell size={20} />
               <CircleHelp size={20} />
-              <button 
+              <button
                 className="topbar-icon-button"
                 onClick={handleLogout}
-                aria-label="Log out" 
+                aria-label="Log out"
               >
                 <LogOut size={20} />
               </button>
             </div>
           </header>
-
           <div className="content">{children}</div>
         </main>
       </div>
