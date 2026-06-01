@@ -113,3 +113,10 @@ export type AuditLog = {
   } | null;
   created_at: string;
 };
+
+export type ProjectUpdateInput = {
+  name?: string;
+  description?: string;
+  environment?: string;
+  color?: string;
+};

@@ -2,6 +2,7 @@ import { getToken, clearToken } from "./auth";
 import type {
   AuthResponse,
   Project,
+  ProjectUpdateInput,
   ProjectCreatePayload,
   ApiKeyCreateResponse,
   ApiKey,
@@ -71,7 +72,15 @@ export async function apiRequest<T>(
     throw new Error(message);
   }
 
-  return response.json();
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  const text = await response.text();
+
+  if(!text) {
+    return undefined as T;
+  }
+  return JSON.parse(text) as T;
 }
 
 export function register(payload: {
@@ -145,4 +154,17 @@ export function createApiKey(payload: ApiKeyCreatePayload) {
 
 export function getAuditLogs(limit = 50) {
   return apiRequest<AuditLog[]>(`/audit-logs?limit=${limit}`);
+}
+
+export function updateProject(projectId: string, payload: ProjectUpdateInput) {
+  return apiRequest<Project>(`/projects/${projectId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function revokeApiKey(apiKeyId: string) {
+  return apiRequest<void>(`/users/me/api-keys/${apiKeyId}`, {
+    method: "DELETE",
+  });
 }

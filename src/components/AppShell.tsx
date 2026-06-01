@@ -26,7 +26,7 @@ export function AppShell({ title = "V-Secrets Console", children }: AppShellProp
       <div className="shell">
         <Sidebar />
 
-        <main className="main">
+        <main className={`main ${title === "Audit Logs" ? "audit-page-main" : ""}`}>
           <header className="topbar">
             <div className="topbar-brand-title">
               {title === "V-Secrets Console" ? (

@@ -13,6 +13,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState("");
+ 
 
   useEffect(() => {
     async function load() {
@@ -93,7 +94,7 @@ export default function DashboardPage() {
         <StatCard
           icon={<KeyRound size={22} />}
           label="Runtime Keys"
-          value={`${user?.usage?.api_keys ?? 0} / ${formatLimit(user?.limits?.api_keys)}`}
+          value={`${user?.usage?.api_keys ?? 0} / ${formatLimit(user?.limits?.api_keys)} active`}
         />
 
         <StatCard

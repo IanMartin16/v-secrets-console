@@ -79,7 +79,7 @@ export default function AuditPage() {
 
   return (
     <AppShell title="Audit Logs">
-      <section className="hero overview-hero">
+      <section className="hero overview-hero audit-hero">
         <p className="hero-eyebrow">Security events • Runtime activity</p>
         <h1>Audit visibility for sensitive actions</h1>
         <p>

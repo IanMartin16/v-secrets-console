@@ -1159,3 +1159,34 @@ pre,
     flex-direction: column;
   }
 }
+
+.badge-muted {
+  color: var(--muted);
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.stat-helper {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.audit-hero {
+  background: transparent;
+}
+
+.audit-hero::before,
+.audit-hero::after {
+  display: none;
+}
+
+.audit-page-main {
+  background: rgba(8, 9, 13, 0.96);
+}
+
+.audit-page-main::before,
+.audit-page-main::after {
+  display: none !important;
+}

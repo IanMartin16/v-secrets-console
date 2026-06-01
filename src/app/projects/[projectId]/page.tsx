@@ -15,8 +15,10 @@ import {
   getApiKeys,
   revealSecret,
 } from "@/lib/api";
-import type { Project, Secret, ApiKey } from "@/lib/types";
+import type { Project, Secret, UserProfile, ApiKey } from "@/lib/types";
 import { RuntimeKeyCreatedModal } from "@/components/RuntimeKeyCreatedModal";
+import { updateProject, revokeApiKey } from "@/lib/api";
+import { StatCard } from "@/components/StatCard";
 
 
 export default function ProjectDetailPage() {
@@ -47,6 +49,14 @@ export default function ProjectDetailPage() {
   const [quickstartRuntimeKey, setQuickstartRuntimeKey] = useState("");
   const [quickstartSecretName, setQuickstartSecretName] = useState("OPENAI_API_KEY");
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+  
+  const [showEditProject, setShowEditProject] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editEnvironment, setEditEnvironment] = useState("production");
+  const [editColor, setEditColor] = useState("#3B82F6");
+  const [savingProject, setSavingProject] = useState(false);
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
 
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [showRuntimeForm, setShowRuntimeForm] = useState(false);
@@ -59,6 +69,10 @@ export default function ProjectDetailPage() {
   ]);
   const [creatingRuntimeKey, setCreatingRuntimeKey] = useState(false);
   const [createdRuntimeKey, setCreatedRuntimeKey] = useState<string | null>(null);
+
+  const activeRuntimeKeys = apiKeys.filter((key) => key.is_active !== false).length;
+  const totalRuntimeKeys = apiKeys.length;
+  const [user, setUser] = useState<UserProfile | null>(null);
 
   const availableScopes = [
     {
@@ -305,6 +319,76 @@ export default function ProjectDetailPage() {
     setSuccess("Project ID copied.");
   }
 
+  function openEditProject() {
+    if (!project) return;
+
+    setEditName(project.name);
+    setEditDescription(project.description || "");
+    setEditEnvironment(project.environment || "production");
+    setEditColor(project.color || "#3B82F6");
+    setShowEditProject(true);
+  }
+
+  async function handleUpdateProject(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!project) return;
+
+    setError("");
+    setSavingProject(true);
+
+    try {
+      await updateProject(project.id, {
+        name: editName,
+        description: editDescription,
+        environment: editEnvironment,
+        color: editColor,
+      });
+
+      setShowEditProject(false);
+      await loadProjectData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update project");
+    } finally {
+      setSavingProject(false);
+    }
+  }
+
+  async function handleRevokeApiKey(apiKeyId: string, keyName?: string) {
+    const confirmed = window.confirm(
+      `Revoke ${keyName || "this runtime key"}? Apps using this key will stop working.`
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setRevokingKeyId(apiKeyId);
+
+    try {
+      await revokeApiKey(apiKeyId);
+      await loadProjectData();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to revoke runtime key";
+
+      if (message.toLowerCase().includes("api key not found")) {
+        await loadProjectData();
+        return;
+      }
+
+      setError(message);
+    } finally {
+      setRevokingKeyId(null);
+    }
+  }
+  const activeApiKeysCount = apiKeys.filter(
+    (key) => key.is_active !== false
+  ).length;
+
+  function formatLimit(value?: number | null) {
+    return value === null || value === undefined ? "Unlimited" : String(value);
+  }
+
   return (
     <AppShell title="Project detail">
       {revealed ? (
@@ -372,14 +456,86 @@ export default function ProjectDetailPage() {
             <KeyRound size={16} />
             Runtime Keys
           </Button>
-
-          <Button
-            variant={activeTab === "quickstart" ? "primary" : "ghost"}
-            onClick={() => setActiveTab("quickstart")}
-          >
-            Quickstart
+          <Button variant="ghost" onClick={openEditProject}>
+            Edit project
           </Button>
         </div>
+
+        <section className="section card table-card">
+            <div
+              style={{
+                padding: 22,
+                borderBottom: "1px solid var(--border-soft)",
+              }}
+            >
+              <h2 style={{ margin: 0 }}>Runtime Keys</h2>
+              <p style={{ color: "var(--muted)", margin: "6px 0 0" }}>
+                Scoped keys used by applications to retrieve secrets at runtime.
+              </p>
+            </div>
+
+            {apiKeys.length === 0 ? (
+              <div className="empty">
+                <h3>No runtime keys yet</h3>
+                <p>Create a runtime key to let your app retrieve secrets securely.</p>
+              </div>
+            ) : (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Project</th>
+                    <th>Last used</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {apiKeys.map((key) => (
+                    <tr key={key.id}>
+                      <td>
+                        <strong>{key.name}</strong>
+                        <div style={{ color: "var(--muted)", fontSize: 13 }}>
+                          {key.key_prefix || "Runtime key"}
+                        </div>
+                      </td>
+
+                      <td>
+                        <span className={key.is_active === false ? "badge badge-muted" : "badge"}>
+                          {key.is_active === false ? "Revoked" : "Active"}
+                        </span>
+                      </td>
+
+                      <td>
+                        <code>{key.project_id || "Global"}</code>
+                      </td>
+
+                      <td>
+                        {key.last_used_at
+                          ? new Date(key.last_used_at).toLocaleString()
+                          : "Never"}
+                      </td>
+
+                      <td>
+                        {key.is_active === false ? (
+                        <span className="badge">Revoked</span>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleRevokeApiKey(key.id, key.name)}
+                          disabled={revokingKeyId === key.id}
+                        >
+                          {revokingKeyId === key.id ? "Revoking..." : "Revoke"}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            )}
+          </section>
 
         {activeTab === "secrets" ? (
           <div className="section">
@@ -399,6 +555,82 @@ export default function ProjectDetailPage() {
                 Add Secret
               </Button>
             </div>
+
+            {showEditProject ? (
+              <div className="modal-backdrop">
+                <form className="modal-card form" onSubmit={handleUpdateProject}>
+                  <div className="modal-header">
+                    <div>
+                      <h2>Edit project</h2>
+                      <p>{project?.id}</p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setShowEditProject(false)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+
+                  <div className="field">
+                    <label>Project name</label>
+                    <input
+                      value={editName}
+                      onChange={(event) => setEditName(event.target.value)}
+                      required
+                      placeholder="Nexus"
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label>Description</label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(event) => setEditDescription(event.target.value)}
+                      rows={3}
+                      placeholder="Runtime secrets for this application"
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label>Environment</label>
+                    <select
+                      value={editEnvironment}
+                      onChange={(event) => setEditEnvironment(event.target.value)}
+                    >
+                      <option value="development">development</option>
+                      <option value="staging">staging</option>
+                      <option value="production">production</option>
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label>Color</label>
+                    <input
+                      type="color"
+                      value={editColor}
+                      onChange={(event) => setEditColor(event.target.value)}
+                    />
+                  </div>
+
+                  <div className="actions">
+                    <Button variant="primary" type="submit" disabled={savingProject}>
+                      {savingProject ? "Saving..." : "Save changes"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setShowEditProject(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            ) : null}
 
             {showSecretForm ? (
               <form className="card form" onSubmit={handleCreateSecret}>
