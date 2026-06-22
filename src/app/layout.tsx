@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "V-Secrets Console",
+  title: "V-Secrets Console · Vault Secrets Manager",
   description: "Developer Secrets Manager",
 };
 
