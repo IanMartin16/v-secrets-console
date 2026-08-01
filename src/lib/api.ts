@@ -1,4 +1,5 @@
 import { getToken, clearToken } from "./auth";
+import { signOut } from "next-auth/react";
 import type {
   AuthResponse,
   Project,
@@ -53,6 +54,7 @@ export async function apiRequest<T>(
   if (response.status === 401) {
     clearToken();
     window.location.href = "/login";
+    void signOut({ callbackUrl: "/login" });  // mata la cookie de NextAuth
     throw new Error("Session expired. Please sign in again.");
   }
 

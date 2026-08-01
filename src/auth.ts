@@ -202,6 +202,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
         token.vsecretsAccessToken = u.vsecretsAccessToken;
         token.vsecretsRefreshToken = u.vsecretsRefreshToken;
+        // FastAPI access tokens live 30 min; refresh 2 min early
+        token.vsecretsExpiresAt = Date.now() + 28 * 60 * 1000;
         return token;
       }
 
@@ -216,6 +218,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (provisioned) {
           token.vsecretsAccessToken = provisioned.access_token;
           token.vsecretsRefreshToken = provisioned.refresh_token;
+          // FastAPI access tokens live 30 min; refresh 2 min early
+          token.vsecretsExpiresAt = Date.now() + 28 * 60 * 1000;
         } else {
           token.provisioningFailed = true;
         }
@@ -225,9 +229,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async session({ session, token }) {
-      if (token.vsecretsAccessToken) {
+      const expiresAt = token.vsecretsExpiresAt as number | undefined;
+      const isExpired = typeof expiresAt === "number" && Date.now() >= expiresAt;
+
+      // Only expose a LIVE access token. If it expired, the session appears
+      // incomplete to the middleware, which routes to /login instead of
+      // bouncing the user back to /dashboard (the iPad loop).
+      if (token.vsecretsAccessToken && !isExpired) {
         (session as typeof session & { accessToken?: string }).accessToken =
           token.vsecretsAccessToken as string;
+      }
+      if (isExpired) {
+        (session as typeof session & { tokenExpired?: boolean }).tokenExpired = true;
       }
       if (token.provisioningFailed) {
         (session as typeof session & { provisioningFailed?: boolean }).provisioningFailed =
