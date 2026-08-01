@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { Check, Copy, Trash2 } from "lucide-react";
+import { Check, Copy, ShieldAlert, Trash2 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
@@ -11,23 +11,73 @@ import type { ApiKey, Project, UserProfile } from "@/lib/types";
 
 import styles from "@/components/AppShell.module.css";
 
-// Permission presets for runtime keys.
-// IMPORTANT: the string values must match the scope enum your FastAPI backend
-// accepts (check app/schemas/api_key.py). Adjust here if yours differ.
-const SCOPE_PRESETS = [
+// Full scope catalogue, mirroring ALLOWED_API_KEY_SCOPES in the backend.
+// The read/reveal split matters: `secrets:read` returns metadata only, while
+// `secrets:reveal` is what actually decrypts a value.
+const ALL_SCOPES = [
   {
-    id: "read",
-    scopes: ["read"],
-    label: "Read only",
-    hint: "Can reveal secret values. Cannot create, update, or delete.",
+    id: "projects:read",
+    group: "Projects",
+    description: "List projects and read their metadata",
   },
   {
-    id: "read_write",
-    scopes: ["read", "write"],
-    label: "Read and write",
-    hint: "Full access to secrets in scope. Use for tooling that provisions secrets.",
+    id: "projects:write",
+    group: "Projects",
+    description: "Create and update projects",
+  },
+  {
+    id: "secrets:read",
+    group: "Secrets",
+    description: "List secret keys and metadata — values stay hidden",
+  },
+  {
+    id: "secrets:reveal",
+    group: "Secrets",
+    description: "Decrypt and return secret values",
+  },
+  {
+    id: "secrets:write",
+    group: "Secrets",
+    description: "Create new secrets and update existing ones",
+  },
+  {
+    id: "secrets:delete",
+    group: "Secrets",
+    description: "Permanently remove secrets",
+  },
+  {
+    id: "api_keys:write",
+    group: "Runtime keys",
+    description: "Issue and revoke other runtime keys",
+    dangerous: true,
   },
 ];
+
+const SCOPE_GROUPS = ["Projects", "Secrets", "Runtime keys"];
+
+// Presets cover the common shapes; "custom" unlocks the full checkbox grid.
+const SCOPE_PRESETS: Record<string, { label: string; hint: string; scopes: string[] }> = {
+  inventory: {
+    label: "Inventory — list only",
+    hint: "Sees which projects and secrets exist but cannot decrypt anything. Good for dashboards and drift checks.",
+    scopes: ["projects:read", "secrets:read"],
+  },
+  runtime: {
+    label: "Runtime — read and reveal",
+    hint: "Can decrypt secret values. This is what a deployed service needs, and nothing more.",
+    scopes: ["projects:read", "secrets:read", "secrets:reveal"],
+  },
+  deploy: {
+    label: "Deploy — reveal and write",
+    hint: "Adds the ability to create and update secrets. For provisioning tooling and CI, not for a running app.",
+    scopes: ["projects:read", "secrets:read", "secrets:reveal", "secrets:write"],
+  },
+  custom: {
+    label: "Custom — pick individual scopes",
+    hint: "",
+    scopes: [],
+  },
+};
 
 export default function SettingsPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -41,7 +91,8 @@ export default function SettingsPage() {
   const [keyName, setKeyName] = useState("");
   const [keyProject, setKeyProject] = useState("");
   const [keyExpiry, setKeyExpiry] = useState("90");
-  const [keyScopePreset, setKeyScopePreset] = useState("read");
+  const [keyScopePreset, setKeyScopePreset] = useState("runtime");
+  const [keyScopes, setKeyScopes] = useState<string[]>(SCOPE_PRESETS.runtime.scopes);
   const [creating, setCreating] = useState(false);
 
   // The one-time reveal of a freshly created key
@@ -72,15 +123,18 @@ export default function SettingsPage() {
   async function handleCreateKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    if (keyScopes.length === 0) {
+      setError("Select at least one permission for this key.");
+      return;
+    }
+
     setCreating(true);
 
     try {
-      const preset =
-        SCOPE_PRESETS.find((item) => item.id === keyScopePreset) ?? SCOPE_PRESETS[0];
-
       const response = await createApiKey({
         name: keyName,
-        scopes: preset.scopes,
+        scopes: keyScopes,
         ...(keyProject ? { project_id: keyProject } : {}),
         ...(keyExpiry !== "never" ? { expires_in_days: Number(keyExpiry) } : {}),
       });
@@ -92,7 +146,8 @@ export default function SettingsPage() {
       setKeyName("");
       setKeyProject("");
       setKeyExpiry("90");
-      setKeyScopePreset("read");
+      setKeyScopePreset("runtime");
+      setKeyScopes(SCOPE_PRESETS.runtime.scopes);
       setShowForm(false);
 
       const keys = await getApiKeys();
@@ -118,6 +173,23 @@ export default function SettingsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to revoke key");
     }
+  }
+
+  function handlePresetChange(presetId: string) {
+    setKeyScopePreset(presetId);
+    // Switching to custom seeds the checkboxes with whatever was selected,
+    // so the user edits from a working starting point instead of an empty list.
+    if (presetId !== "custom") {
+      setKeyScopes(SCOPE_PRESETS[presetId]?.scopes ?? []);
+    }
+  }
+
+  function toggleScope(scopeId: string) {
+    setKeyScopes((current) =>
+      current.includes(scopeId)
+        ? current.filter((item) => item !== scopeId)
+        : [...current, scopeId],
+    );
   }
 
   async function handleCopyKey() {
@@ -296,17 +368,77 @@ export default function SettingsPage() {
                 id="key-scopes"
                 className={styles.select}
                 value={keyScopePreset}
-                onChange={(event) => setKeyScopePreset(event.target.value)}
+                onChange={(event) => handlePresetChange(event.target.value)}
               >
-                {SCOPE_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
+                {Object.entries(SCOPE_PRESETS).map(([id, preset]) => (
+                  <option key={id} value={id}>
                     {preset.label}
                   </option>
                 ))}
               </select>
-              <span className={styles.settingsHint}>
-                {SCOPE_PRESETS.find((preset) => preset.id === keyScopePreset)?.hint}
-              </span>
+
+              {keyScopePreset === "custom" ? (
+                <div className={styles.scopeGroups}>
+                  {SCOPE_GROUPS.map((group) => (
+                    <div key={group} className={styles.scopeGroup}>
+                      <span className={styles.scopeGroupLabel}>{group}</span>
+                      {ALL_SCOPES.filter((scope) => scope.group === group).map((scope) => {
+                        const checked = keyScopes.includes(scope.id);
+                        return (
+                          <label
+                            key={scope.id}
+                            className={[
+                              styles.scopeItem,
+                              checked ? styles.scopeItemChecked : "",
+                              scope.dangerous ? styles.scopeItemDanger : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          >
+                            <input
+                              type="checkbox"
+                              className={styles.scopeCheckbox}
+                              checked={checked}
+                              onChange={() => toggleScope(scope.id)}
+                            />
+                            <span className={styles.scopeText}>
+                              <span className={styles.scopeName}>
+                                {scope.id}
+                                {scope.dangerous ? (
+                                  <span className={styles.scopeDangerBadge}>escalation</span>
+                                ) : null}
+                              </span>
+                              <span className={styles.scopeDesc}>{scope.description}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className={styles.settingsHint}>
+                  {SCOPE_PRESETS[keyScopePreset]?.hint}
+                </span>
+              )}
+
+              {keyScopes.includes("api_keys:write") ? (
+                <div className={styles.scopeWarning}>
+                  <ShieldAlert size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span>
+                    This key will be able to issue and revoke other runtime keys. If it leaks,
+                    an attacker can mint themselves broader access. Grant it only to trusted
+                    administrative tooling.
+                  </span>
+                </div>
+              ) : null}
+
+              {keyScopePreset === "custom" && keyScopes.length > 0 ? (
+                <span className={styles.scopeSummary}>
+                  {keyScopes.length} scope{keyScopes.length === 1 ? "" : "s"}:{" "}
+                  {[...keyScopes].sort().join(", ")}
+                </span>
+              ) : null}
             </div>
 
             <div className={styles.field}>
@@ -384,10 +516,8 @@ export default function SettingsPage() {
                         </span>
                       </td>
                       <td>
-                        <span className={styles.tableActor}>
-                          {Array.isArray(key.scopes) && key.scopes.length > 0
-                            ? key.scopes.join(" · ")
-                            : "—"}
+                        <span className={styles.tableActor} title={(key.scopes ?? []).join(", ")}>
+                          {describeScopes(key.scopes)}
                         </span>
                       </td>
                       <td>
@@ -435,4 +565,17 @@ export default function SettingsPage() {
 
 function formatLimit(value?: number | null) {
   return value === null || value === undefined ? "∞" : String(value);
+}
+
+/** Collapse a raw scope list into the closest preset name. */
+function describeScopes(scopes?: string[] | null): string {
+  if (!Array.isArray(scopes) || scopes.length === 0) return "—";
+
+  const set = new Set(scopes);
+
+  if (set.has("api_keys:write")) return "admin";
+  if (set.has("secrets:delete")) return "full";
+  if (set.has("secrets:write")) return "deploy";
+  if (set.has("secrets:reveal")) return "runtime";
+  return "inventory";
 }
