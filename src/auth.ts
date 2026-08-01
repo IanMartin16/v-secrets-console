@@ -120,6 +120,35 @@ async function loginWithFastAPI(
   }
 }
 
+/** Silent refresh: exchange a refresh token for a fresh access token. */
+async function refreshWithFastAPI(
+  refreshToken: string,
+): Promise<ProvisionedTokens | null> {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) return null;
+
+  try {
+    const response = await fetch(`${apiUrl}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      // 401 = refresh token expired or invalid; 403 = account disabled.
+      // Either way the user has to sign in again.
+      console.warn(`[auth] refresh failed ${response.status}`);
+      return null;
+    }
+
+    return (await response.json()) as ProvisionedTokens;
+  } catch (err) {
+    console.error("[auth] refresh network error:", err);
+    return null;
+  }
+}
+
 // -----------------------------------------------------------------------------
 // NextAuth config
 // -----------------------------------------------------------------------------
@@ -191,8 +220,39 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async jwt({ token, user, account }) {
-      // `user` and `account` are only present on the initial sign-in
-      if (!user || !account) return token;
+      // -------- Subsequent calls: silent refresh --------
+      // `user` and `account` are only present on the initial sign-in. Every
+      // other invocation (session fetch, page load, refetchInterval tick)
+      // lands here — that's where we keep the access token alive.
+      if (!user || !account) {
+        const expiresAt = token.vsecretsExpiresAt as number | undefined;
+
+        // Still valid — nothing to do
+        if (typeof expiresAt === "number" && Date.now() < expiresAt) {
+          return token;
+        }
+
+        // Expired (or unknown expiry) — try to refresh silently
+        const refreshToken = token.vsecretsRefreshToken as string | undefined;
+        if (refreshToken) {
+          const refreshed = await refreshWithFastAPI(refreshToken);
+          if (refreshed) {
+            token.vsecretsAccessToken = refreshed.access_token;
+            token.vsecretsRefreshToken = refreshed.refresh_token;
+            token.vsecretsExpiresAt = Date.now() + 28 * 60 * 1000;
+            delete token.refreshFailed;
+            return token;
+          }
+        }
+
+        // Refresh token is gone or rejected — mark the session dead. The
+        // session callback stops exposing accessToken, the middleware sees an
+        // incomplete session, and the user is routed to /login cleanly.
+        token.refreshFailed = true;
+        return token;
+      }
+
+      // -------- Initial sign-in --------
 
       if (account.provider === "password") {
         // Tokens were already fetched inside authorize()
@@ -231,15 +291,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       const expiresAt = token.vsecretsExpiresAt as number | undefined;
       const isExpired = typeof expiresAt === "number" && Date.now() >= expiresAt;
+      const isDead = isExpired || token.refreshFailed === true;
 
-      // Only expose a LIVE access token. If it expired, the session appears
-      // incomplete to the middleware, which routes to /login instead of
+      // Only expose a LIVE access token. When the token is dead the session
+      // looks incomplete to the middleware, which routes to /login instead of
       // bouncing the user back to /dashboard (the iPad loop).
-      if (token.vsecretsAccessToken && !isExpired) {
+      if (token.vsecretsAccessToken && !isDead) {
         (session as typeof session & { accessToken?: string }).accessToken =
           token.vsecretsAccessToken as string;
       }
-      if (isExpired) {
+      if (isDead) {
         (session as typeof session & { tokenExpired?: boolean }).tokenExpired = true;
       }
       if (token.provisioningFailed) {
