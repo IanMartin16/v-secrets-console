@@ -16,8 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 
-import { getMe } from "@/lib/api";
-import { clearToken, getToken, saveToken } from "@/lib/auth";
+import { getMe, invalidateTokenCache } from "@/lib/api";
 import type { UserProfile } from "@/lib/types";
 
 import styles from "./AppShell.module.css";
@@ -53,46 +52,55 @@ type ExtendedSession = {
 export function AppShell({ title, children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session, status } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
   const [user, setUser] = useState<UserProfile | null>(null);
 
+  // Auth gate + profile load.
+  // The access token is NOT mirrored here — lib/api.ts reads it straight from
+  // the NextAuth session on every request, so there is exactly one source of
+  // truth and nothing can go stale behind our back.
   useEffect(() => {
-    // Wait for NextAuth session to load before deciding
     if (status === "loading") return;
 
-    // Sync: if NextAuth issued an access_token via the FastAPI bridge,
-    // copy it to localStorage where lib/api.ts expects it
     const extended = session as (typeof session & ExtendedSession) | null;
-    const sessionToken = extended?.accessToken;
-    const localToken = getToken();
 
-    if (sessionToken && sessionToken !== localToken) {
-      saveToken(sessionToken);
-    }
-
-    // Auth check: either a NextAuth session OR a localStorage token
-    const isAuth = !!sessionToken || !!localToken || status === "authenticated";
-
-    if (!isAuth) {
+    // A session without a live accessToken means the FastAPI token expired and
+    // the silent refresh failed. Treat it as signed out.
+    if (status !== "authenticated" || !extended?.accessToken) {
+      invalidateTokenCache();
       router.replace("/login");
       return;
     }
 
-    // Surface provisioning failures for debugging
-    if (extended?.provisioningFailed) {
+    if (extended.provisioningFailed) {
       console.error(
         "[AppShell] OAuth succeeded but FastAPI provisioning failed. " +
           "Check INTERNAL_PROVISION_SECRET and NEXT_PUBLIC_VSECRETS_API_URL.",
       );
     }
 
-    // Fetch profile — use whichever token is available now
     getMe()
       .then(setUser)
       .catch(() => {
         // Silent fail — plan card falls back to static Free values
       });
   }, [router, status, session]);
+
+  // iOS Safari restores pages from bfcache with frozen JS state, so the session
+  // object in memory can be minutes or hours old. `pageshow` with persisted=true
+  // is the only reliable signal for that restore — force a session refetch,
+  // which re-runs the jwt callback and refreshes the FastAPI token.
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        invalidateTokenCache();
+        void updateSession();
+      }
+    }
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, [updateSession]);
 
   function isActive(href: string) {
     if (href === "/dashboard") {
@@ -111,10 +119,8 @@ export function AppShell({ title, children }: AppShellProps) {
     : Math.min(100, Math.round((secretsUsed / (secretsLimit as number)) * 100));
 
   async function handleSignOut() {
-    // Clear both auth surfaces: FastAPI localStorage token AND NextAuth cookies
-    clearToken();
-    await signOut({ redirect: false });
-    router.replace("/login");
+    invalidateTokenCache();
+    await signOut({ callbackUrl: "/login" });
   }
 
   return (

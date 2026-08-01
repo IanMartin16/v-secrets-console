@@ -3,10 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
-
-import { getToken } from "@/lib/auth";
 
 import styles from "./login.module.css";
 
@@ -18,6 +16,7 @@ import styles from "./login.module.css";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { status } = useSession();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
 
   const [email, setEmail] = useState("");
@@ -27,11 +26,13 @@ function LoginContent() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Already signed in? Skip the form. The session is the only auth signal —
+  // no localStorage check, so a stale token can't bounce the user around.
   useEffect(() => {
-    if (getToken()) {
+    if (status === "authenticated") {
       router.replace(callbackUrl);
     }
-  }, [router, callbackUrl]);
+  }, [router, callbackUrl, status]);
 
   async function handleGithub() {
     setError("");

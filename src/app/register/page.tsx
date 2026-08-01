@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { register } from "@/lib/api";
-import { getToken } from "@/lib/auth";
 
 import styles from "../login/login.module.css";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,11 +21,12 @@ export default function RegisterPage() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Already signed in? Skip the form.
   useEffect(() => {
-    if (getToken()) {
+    if (status === "authenticated") {
       router.replace("/dashboard");
     }
-  }, [router]);
+  }, [router, status]);
 
   async function handleGithub() {
     setError("");
