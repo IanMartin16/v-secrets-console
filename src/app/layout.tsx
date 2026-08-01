@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
+import { Providers } from "@/components/Providers";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -42,7 +44,9 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${geistSans.variable} ${geistMono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { login } from "@/lib/api";
@@ -12,17 +13,30 @@ import styles from "./login.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (getToken()) {
-      router.replace("/dashboard");
+      router.replace(callbackUrl);
     }
-  }, [router]);
+  }, [router, callbackUrl]);
+
+  async function handleGithub() {
+    setError("");
+    setOauthLoading(true);
+    // NextAuth handles the redirect to GitHub and back
+    await signIn("github", { callbackUrl });
+    // If signIn returns without redirect (shouldn't normally), reset state
+    setOauthLoading(false);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,23 +46,12 @@ export default function LoginPage() {
     try {
       const response = await login({ email, password });
       saveToken(response.access_token);
-      router.push("/dashboard");
+      router.push(callbackUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed. Try again.");
     } finally {
       setLoading(false);
     }
-  }
-
-  // OAuth stubs — wired to real providers (NextAuth / Clerk) in the next iteration
-  function handleGithub() {
-    // TODO: swap for signIn("github") once NextAuth is configured
-    setError("GitHub sign in is not yet enabled. Use email for now.");
-  }
-
-  function handleGoogle() {
-    // TODO: swap for signIn("google") once NextAuth is configured
-    setError("Google sign in is not yet enabled. Use email for now.");
   }
 
   return (
@@ -90,7 +93,6 @@ export default function LoginPage() {
             for your services.
           </p>
 
-          {/* Signature: vault transform block */}
           <div className={styles.vaultDemo} aria-label="Example: how V-Secrets stores a secret">
             <div className={styles.vaultDemoHeader}>
               <span className={styles.vaultDemoTitle}>vault · encrypt</span>
@@ -155,33 +157,20 @@ export default function LoginPage() {
           </header>
 
           <div className={styles.oauthGroup}>
-            <button type="button" className={styles.oauthBtn} onClick={handleGithub}>
+            <button
+              type="button"
+              className={styles.oauthBtn}
+              onClick={handleGithub}
+              disabled={oauthLoading}
+            >
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 .5a11.5 11.5 0 0 0-3.63 22.42c.58.1.79-.25.79-.56v-2c-3.24.7-3.92-1.4-3.92-1.4-.53-1.34-1.3-1.69-1.3-1.69-1.06-.72.08-.7.08-.7 1.17.08 1.79 1.2 1.79 1.2 1.04 1.78 2.73 1.27 3.4.97.1-.76.4-1.27.74-1.56-2.58-.29-5.3-1.29-5.3-5.75 0-1.27.45-2.31 1.19-3.13-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.19a11 11 0 0 1 5.79 0c2.2-1.5 3.17-1.19 3.17-1.19.63 1.59.23 2.77.12 3.06.74.82 1.19 1.86 1.19 3.13 0 4.47-2.72 5.46-5.32 5.75.41.35.78 1.06.78 2.13v3.16c0 .31.21.67.79.56A11.5 11.5 0 0 0 12 .5z" />
               </svg>
-              Continue with GitHub
-            </button>
-            <button type="button" className={styles.oauthBtn} onClick={handleGoogle}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="#4285F4"
-                  d="M22.5 12.2c0-.8-.1-1.6-.2-2.3H12v4.4h5.9c-.3 1.4-1 2.5-2.2 3.3v2.8h3.6c2.1-2 3.2-4.8 3.2-8.2z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.9 0 5.4-1 7.2-2.6l-3.6-2.8c-1 .7-2.3 1.1-3.6 1.1-2.8 0-5.1-1.9-6-4.4H2.3v2.8A11 11 0 0 0 12 23z"
-                />
-                <path fill="#FBBC05" d="M6 14.3a6.6 6.6 0 0 1 0-4.6V6.9H2.3a11 11 0 0 0 0 10.2L6 14.3z" />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.4c1.6 0 3 .5 4.1 1.6l3.1-3.1A11 11 0 0 0 12 1a11 11 0 0 0-9.7 5.9L6 9.7c.9-2.5 3.2-4.3 6-4.3z"
-                />
-              </svg>
-              Continue with Google
+              {oauthLoading ? "Connecting to GitHub…" : "Continue with GitHub"}
             </button>
           </div>
 
-          <div className={styles.divider}>or continue with email</div>
+          <div className={styles.divider}>or</div>
 
           <form className={styles.authForm} onSubmit={handleSubmit} noValidate>
             <div className={styles.field}>
@@ -240,7 +229,7 @@ export default function LoginPage() {
             ) : null}
 
             <button type="submit" className={styles.submitBtn} disabled={loading}>
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? "Signing in…" : "Sign in with password"}
             </button>
           </form>
 

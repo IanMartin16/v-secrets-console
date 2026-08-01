@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { signOut, useSession } from "next-auth/react";
 import {
   Bell,
   BookOpen,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { getMe } from "@/lib/api";
-import { clearToken, isAuthenticated } from "@/lib/auth";
+import { clearToken, getToken, saveToken } from "@/lib/auth";
 import type { UserProfile } from "@/lib/types";
 
 import styles from "./AppShell.module.css";
@@ -44,24 +45,54 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
+type ExtendedSession = {
+  accessToken?: string;
+  provisioningFailed?: boolean;
+};
+
 export function AppShell({ title, children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<UserProfile | null>(null);
 
-  // Protect: redirect to /login if no token
   useEffect(() => {
-    if (!isAuthenticated()) {
+    // Wait for NextAuth session to load before deciding
+    if (status === "loading") return;
+
+    // Sync: if NextAuth issued an access_token via the FastAPI bridge,
+    // copy it to localStorage where lib/api.ts expects it
+    const extended = session as (typeof session & ExtendedSession) | null;
+    const sessionToken = extended?.accessToken;
+    const localToken = getToken();
+
+    if (sessionToken && sessionToken !== localToken) {
+      saveToken(sessionToken);
+    }
+
+    // Auth check: either a NextAuth session OR a localStorage token
+    const isAuth = !!sessionToken || !!localToken || status === "authenticated";
+
+    if (!isAuth) {
       router.replace("/login");
       return;
     }
 
+    // Surface provisioning failures for debugging
+    if (extended?.provisioningFailed) {
+      console.error(
+        "[AppShell] OAuth succeeded but FastAPI provisioning failed. " +
+          "Check INTERNAL_PROVISION_SECRET and NEXT_PUBLIC_VSECRETS_API_URL.",
+      );
+    }
+
+    // Fetch profile — use whichever token is available now
     getMe()
       .then(setUser)
       .catch(() => {
-        // Silent fail — plan card falls back to static Free
+        // Silent fail — plan card falls back to static Free values
       });
-  }, [router]);
+  }, [router, status, session]);
 
   function isActive(href: string) {
     if (href === "/dashboard") {
@@ -72,7 +103,6 @@ export function AppShell({ title, children }: AppShellProps) {
 
   const displayTitle = title ?? deriveTitle(pathname);
 
-  // Plan card values
   const secretsUsed = user?.usage?.secrets ?? 0;
   const secretsLimit = user?.limits?.secrets_per_project;
   const isUnlimited = secretsLimit === null || secretsLimit === undefined;
@@ -80,8 +110,10 @@ export function AppShell({ title, children }: AppShellProps) {
     ? 0
     : Math.min(100, Math.round((secretsUsed / (secretsLimit as number)) * 100));
 
-  function handleSignOut() {
+  async function handleSignOut() {
+    // Clear both auth surfaces: FastAPI localStorage token AND NextAuth cookies
     clearToken();
+    await signOut({ redirect: false });
     router.replace("/login");
   }
 
