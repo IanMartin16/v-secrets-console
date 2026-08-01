@@ -1,13 +1,7 @@
 // middleware.ts (project root)
 // First line of defense: redirect unauthenticated users away from console routes.
-// This runs on the edge before the page renders.
-//
-// SECURITY NOTE (CVE-2025-29927): Middleware alone is bypassable by spoofing the
-// x-middleware-subrequest header. We rely on defense-in-depth:
-//   1. This middleware — first filter, redirects unauth users
-//   2. AppShell client check — verifies auth again on mount
-//   3. lib/api.ts — rejects any 401 from FastAPI and clears the session
-// If any single layer is bypassed, the others still hold.
+// Security note (CVE-2025-29927): defense-in-depth applies — AppShell + lib/api
+// also verify auth, so middleware bypass doesn't grant access.
 
 import { auth } from "@/auth";
 
@@ -29,34 +23,47 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+type MaybeExtendedSession = {
+  accessToken?: string;
+} | null;
+
 export default auth((req) => {
   const { nextUrl } = req;
-  const isLoggedIn = !!req.auth;
+  const session = req.auth as MaybeExtendedSession;
+
+  // "Fully authenticated" = has NextAuth session AND FastAPI access_token
+  // If access_token is missing, the OAuth provisioning didn't complete, and
+  // treating the user as logged-in would trap them in a redirect loop.
+  const hasSession = !!session;
+  const hasApiToken = !!session?.accessToken;
+  const isFullyAuth = hasSession && hasApiToken;
 
   if (isPublicPath(nextUrl.pathname)) {
-    // If a logged-in user visits /login or /register, bounce them to /dashboard
-    if (isLoggedIn && (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")) {
+    // Only bounce fully-authenticated users away from /login and /register.
+    // Users with a broken session (no access_token) need /login to retry.
+    if (
+      isFullyAuth &&
+      (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")
+    ) {
       return Response.redirect(new URL("/dashboard", nextUrl));
     }
     return; // allow
   }
 
-  // Non-public route + not logged in → redirect to login
-  if (!isLoggedIn) {
+  // Non-public route + not fully authenticated → redirect to login
+  if (!isFullyAuth) {
     const loginUrl = new URL("/login", nextUrl);
-    // Preserve the intended destination so we can send them back after auth
     if (nextUrl.pathname !== "/") {
       loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
     }
     return Response.redirect(loginUrl);
   }
 
-  // Logged in and requesting a private route → allow
+  // Fully authenticated and requesting a private route → allow
   return;
 });
 
 export const config = {
-  // Run on everything except static assets and the health endpoints
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|images|fonts|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff2?)).*)",
   ],
