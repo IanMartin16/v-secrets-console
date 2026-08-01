@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -11,7 +11,12 @@ import { getToken, saveToken } from "@/lib/auth";
 
 import styles from "./login.module.css";
 
-export default function LoginPage() {
+// ---------------------------------------------------------------------------
+// LoginContent: all logic that touches useSearchParams lives here.
+// Must be wrapped in <Suspense> so Next.js can prerender the shell.
+// ---------------------------------------------------------------------------
+
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
@@ -32,9 +37,7 @@ export default function LoginPage() {
   async function handleGithub() {
     setError("");
     setOauthLoading(true);
-    // NextAuth handles the redirect to GitHub and back
     await signIn("github", { callbackUrl });
-    // If signIn returns without redirect (shouldn't normally), reset state
     setOauthLoading(false);
   }
 
@@ -239,5 +242,18 @@ export default function LoginPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// LoginPage (default export): wraps LoginContent in Suspense so Next.js can
+// safely prerender the shell before searchParams resolves on the client.
+// ---------------------------------------------------------------------------
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }
