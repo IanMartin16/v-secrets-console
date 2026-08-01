@@ -31,7 +31,7 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", Icon: LayoutGrid },
   { href: "/projects", label: "Projects", Icon: FolderOpen },
   { href: "/quickstart", label: "Quickstart", Icon: Zap },
-  { href: "/audit-logs", label: "Audit Logs", Icon: ScrollText },
+  { href: "/audit", label: "Audit Logs", Icon: ScrollText },
 ];
 
 const WORKSPACE_NAV: NavItem[] = [
@@ -240,7 +240,7 @@ function deriveTitle(pathname: string): string {
   if (pathname === "/dashboard" || pathname === "/") return "Overview";
   if (pathname.startsWith("/projects")) return "Projects";
   if (pathname.startsWith("/quickstart")) return "Quickstart";
-  if (pathname.startsWith("/audit-logs")) return "Audit logs";
+  if (pathname.startsWith("/audit")) return "Audit logs";
   if (pathname.startsWith("/docs")) return "Docs";
   if (pathname.startsWith("/settings")) return "Settings";
   return "Console";
