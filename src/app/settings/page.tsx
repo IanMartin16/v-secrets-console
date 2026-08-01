@@ -11,6 +11,24 @@ import type { ApiKey, Project, UserProfile } from "@/lib/types";
 
 import styles from "@/components/AppShell.module.css";
 
+// Permission presets for runtime keys.
+// IMPORTANT: the string values must match the scope enum your FastAPI backend
+// accepts (check app/schemas/api_key.py). Adjust here if yours differ.
+const SCOPE_PRESETS = [
+  {
+    id: "read",
+    scopes: ["read"],
+    label: "Read only",
+    hint: "Can reveal secret values. Cannot create, update, or delete.",
+  },
+  {
+    id: "read_write",
+    scopes: ["read", "write"],
+    label: "Read and write",
+    hint: "Full access to secrets in scope. Use for tooling that provisions secrets.",
+  },
+];
+
 export default function SettingsPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -23,6 +41,7 @@ export default function SettingsPage() {
   const [keyName, setKeyName] = useState("");
   const [keyProject, setKeyProject] = useState("");
   const [keyExpiry, setKeyExpiry] = useState("90");
+  const [keyScopePreset, setKeyScopePreset] = useState("read");
   const [creating, setCreating] = useState(false);
 
   // The one-time reveal of a freshly created key
@@ -56,8 +75,12 @@ export default function SettingsPage() {
     setCreating(true);
 
     try {
+      const preset =
+        SCOPE_PRESETS.find((item) => item.id === keyScopePreset) ?? SCOPE_PRESETS[0];
+
       const response = await createApiKey({
         name: keyName,
+        scopes: preset.scopes,
         ...(keyProject ? { project_id: keyProject } : {}),
         ...(keyExpiry !== "never" ? { expires_in_days: Number(keyExpiry) } : {}),
       });
@@ -69,6 +92,7 @@ export default function SettingsPage() {
       setKeyName("");
       setKeyProject("");
       setKeyExpiry("90");
+      setKeyScopePreset("read");
       setShowForm(false);
 
       const keys = await getApiKeys();
@@ -265,6 +289,27 @@ export default function SettingsPage() {
             </div>
 
             <div className={styles.field}>
+              <label htmlFor="key-scopes" className={styles.fieldLabel}>
+                Permissions
+              </label>
+              <select
+                id="key-scopes"
+                className={styles.select}
+                value={keyScopePreset}
+                onChange={(event) => setKeyScopePreset(event.target.value)}
+              >
+                {SCOPE_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+              <span className={styles.settingsHint}>
+                {SCOPE_PRESETS.find((preset) => preset.id === keyScopePreset)?.hint}
+              </span>
+            </div>
+
+            <div className={styles.field}>
               <label htmlFor="key-expiry" className={styles.fieldLabel}>
                 Expires in
               </label>
@@ -316,6 +361,7 @@ export default function SettingsPage() {
                     <th>Name</th>
                     <th>Prefix</th>
                     <th>Scope</th>
+                    <th>Permissions</th>
                     <th>Expires</th>
                     <th>Status</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
@@ -335,6 +381,13 @@ export default function SettingsPage() {
                           {key.project_id
                             ? projects.find((p) => p.id === key.project_id)?.name ?? "project"
                             : "global"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={styles.tableActor}>
+                          {Array.isArray(key.scopes) && key.scopes.length > 0
+                            ? key.scopes.join(" · ")
+                            : "—"}
                         </span>
                       </td>
                       <td>
