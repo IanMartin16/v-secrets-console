@@ -7,7 +7,7 @@ import { signIn } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { register } from "@/lib/api";
-import { getToken, saveToken } from "@/lib/auth";
+import { getToken } from "@/lib/auth";
 
 import styles from "../login/login.module.css";
 
@@ -42,18 +42,34 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await register({
+      // 1. Create the account in FastAPI
+      await register({
         email,
         password,
         full_name: fullName,
       });
-      saveToken(response.access_token);
-      router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed. Try again.");
-    } finally {
       setLoading(false);
+      return;
     }
+
+    // 2. Establish a NextAuth session with the same credentials, so the
+    //    middleware sees a valid session cookie (localStorage isn't enough).
+    const result = await signIn("password", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (!result || result.error) {
+      setError("Account created, but automatic sign-in failed. Please sign in.");
+      setLoading(false);
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (

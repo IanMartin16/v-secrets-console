@@ -1,19 +1,20 @@
 // auth.ts
 // Auth.js v5 configuration — lives at the project root.
 //
-// Design decisions:
-// 1. JWT session strategy (no database adapter needed — FastAPI owns the user table)
-// 2. On successful OAuth/magic-link, we call our FastAPI /auth/oauth-provision endpoint
-//    from the `jwt` callback. That endpoint returns an access_token compatible with
-//    the existing password flow.
-// 3. We stash that access_token in the JWT payload so the client-side SessionBridge
-//    can copy it to localStorage (where lib/api.ts expects it).
+// Two providers, one session model:
+//   1. GitHub OAuth  → provisions the user via FastAPI /auth/oauth-provision
+//   2. Credentials   → delegates to FastAPI /auth/login (existing password flow)
+//
+// Both end up with the same FastAPI access_token stored in the NextAuth JWT,
+// which means middleware sees a consistent session regardless of how the user
+// signed in. AppShell syncs that token into localStorage for lib/api.ts.
 
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
+import Credentials from "next-auth/providers/credentials";
 
 // -----------------------------------------------------------------------------
-// FastAPI provisioning bridge
+// FastAPI bridges
 // -----------------------------------------------------------------------------
 
 type ProvisionedTokens = {
@@ -22,17 +23,27 @@ type ProvisionedTokens = {
   token_type: string;
 };
 
+function getApiUrl(): string | null {
+  const url = process.env.NEXT_PUBLIC_VSECRETS_API_URL;
+  if (!url) {
+    console.error("[auth] Missing NEXT_PUBLIC_VSECRETS_API_URL");
+    return null;
+  }
+  return url;
+}
+
+/** OAuth path: create-or-fetch the user in FastAPI, get back tokens. */
 async function provisionWithFastAPI(args: {
-  provider: "github" | "magic_link";
+  provider: "github";
   providerAccountId: string;
   email: string;
   name: string | null;
 }): Promise<ProvisionedTokens | null> {
-  const apiUrl = process.env.NEXT_PUBLIC_VSECRETS_API_URL;
+  const apiUrl = getApiUrl();
   const secret = process.env.INTERNAL_PROVISION_SECRET;
 
   if (!apiUrl || !secret) {
-    console.error("[auth] Missing NEXT_PUBLIC_VSECRETS_API_URL or INTERNAL_PROVISION_SECRET");
+    console.error("[auth] Missing API URL or INTERNAL_PROVISION_SECRET");
     return null;
   }
 
@@ -65,12 +76,55 @@ async function provisionWithFastAPI(args: {
   }
 }
 
+/** Password path: validate credentials against the existing FastAPI endpoint. */
+async function loginWithFastAPI(
+  email: string,
+  password: string,
+): Promise<{ tokens: ProvisionedTokens; profile: { id?: string; full_name?: string } } | null> {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) return null;
+
+  try {
+    const loginRes = await fetch(`${apiUrl}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+      cache: "no-store",
+    });
+
+    if (!loginRes.ok) {
+      // 401 = bad credentials, 403 = inactive account. Both are "no".
+      return null;
+    }
+
+    const tokens = (await loginRes.json()) as ProvisionedTokens;
+
+    // Fetch the profile so the session carries a name and id
+    let profile: { id?: string; full_name?: string } = {};
+    try {
+      const meRes = await fetch(`${apiUrl}/users/me`, {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+        cache: "no-store",
+      });
+      if (meRes.ok) {
+        profile = await meRes.json();
+      }
+    } catch {
+      // Non-fatal — session still works without the profile
+    }
+
+    return { tokens, profile };
+  } catch (err) {
+    console.error("[auth] login network error:", err);
+    return null;
+  }
+}
+
 // -----------------------------------------------------------------------------
 // NextAuth config
 // -----------------------------------------------------------------------------
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // JWT sessions — no DB adapter; the FastAPI backend is the source of truth
   session: {
     strategy: "jwt",
     maxAge: 60 * 60 * 24 * 7, // 7 days
@@ -80,17 +134,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID,
       clientSecret: process.env.AUTH_GITHUB_SECRET,
-      // Request the user's primary email even if it's not public
       authorization: { params: { scope: "read:user user:email" } },
     }),
+
+    Credentials({
+      id: "password",
+      name: "Email and password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email as string | undefined;
+        const password = credentials?.password as string | undefined;
+
+        if (!email || !password) return null;
+
+        const result = await loginWithFastAPI(email, password);
+        if (!result) return null;
+
+        // Whatever we return here lands in the `user` arg of the jwt callback
+        return {
+          id: result.profile.id ?? email,
+          email,
+          name: result.profile.full_name ?? null,
+          vsecretsAccessToken: result.tokens.access_token,
+          vsecretsRefreshToken: result.tokens.refresh_token,
+        };
+      },
+    }),
+
     // Note: Resend / magic-link provider intentionally omitted.
-    // Auth.js email providers require a database adapter (for verification token
-    // storage), which conflicts with the FastAPI-owned user model.
-    //
-    // Magic links are implemented via FastAPI directly:
-    //   POST /auth/magic-link/request   → generate token, email via Resend
-    //   POST /auth/magic-link/verify    → validate token, return access_token
-    // The frontend calls those endpoints directly, bypassing Auth.js.
+    // Auth.js email providers require a database adapter, which conflicts with
+    // the FastAPI-owned user model. Magic links will be implemented via FastAPI
+    // and surfaced here as a second Credentials-style provider.
   ],
 
   pages: {
@@ -100,15 +177,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   callbacks: {
     async signIn({ user, account }) {
+      // Credentials provider already validated everything in authorize()
+      if (account?.provider === "password") return true;
+
+      // OAuth providers must give us an email
       if (!user.email) {
-        console.warn("[auth] signIn rejected: no email from provider", { provider: account?.provider });
+        console.warn("[auth] signIn rejected: no email from provider", {
+          provider: account?.provider,
+        });
         return "/auth/error?reason=email_required";
       }
       return true;
     },
 
     async jwt({ token, user, account }) {
-      if (user && account) {
+      // `user` and `account` are only present on the initial sign-in
+      if (!user || !account) return token;
+
+      if (account.provider === "password") {
+        // Tokens were already fetched inside authorize()
+        const u = user as typeof user & {
+          vsecretsAccessToken?: string;
+          vsecretsRefreshToken?: string;
+        };
+        token.vsecretsAccessToken = u.vsecretsAccessToken;
+        token.vsecretsRefreshToken = u.vsecretsRefreshToken;
+        return token;
+      }
+
+      if (account.provider === "github") {
         const provisioned = await provisionWithFastAPI({
           provider: "github",
           providerAccountId: account.providerAccountId ?? user.id ?? user.email!,
@@ -123,6 +220,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.provisioningFailed = true;
         }
       }
+
       return token;
     },
 
@@ -132,7 +230,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.vsecretsAccessToken as string;
       }
       if (token.provisioningFailed) {
-        (session as typeof session & { provisioningFailed?: boolean }).provisioningFailed = true;
+        (session as typeof session & { provisioningFailed?: boolean }).provisioningFailed =
+          true;
       }
       return session;
     },

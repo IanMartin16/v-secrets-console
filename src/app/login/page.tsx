@@ -6,8 +6,7 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
 
-import { login } from "@/lib/api";
-import { getToken, saveToken } from "@/lib/auth";
+import { getToken } from "@/lib/auth";
 
 import styles from "./login.module.css";
 
@@ -46,15 +45,24 @@ function LoginContent() {
     setError("");
     setLoading(true);
 
-    try {
-      const response = await login({ email, password });
-      saveToken(response.access_token);
-      router.push(callbackUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed. Try again.");
-    } finally {
+    // Password auth goes through NextAuth's Credentials provider, which calls
+    // FastAPI /auth/login server-side. This gives us a session cookie that the
+    // middleware can read — localStorage alone is invisible to the edge.
+    const result = await signIn("password", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (!result || result.error) {
+      setError("Incorrect email or password.");
       setLoading(false);
+      return;
     }
+
+    // Session cookie is set; navigate and let the server re-evaluate
+    router.push(callbackUrl);
+    router.refresh();
   }
 
   return (
