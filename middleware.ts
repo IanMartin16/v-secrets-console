@@ -9,13 +9,15 @@ const PUBLIC_PATHS = [
   "/",
   "/login",
   "/register",
-  "/auth/verify-request",
+  "/forgot-password",
   "/auth/error",
+  "/auth/check-email",
 ];
 
 const PUBLIC_PREFIXES = [
-  "/api/auth", // NextAuth's own endpoints
-  "/_next",    // Next internals
+  "/api/auth",      // NextAuth's own endpoints
+  "/auth/verify",   // /auth/verify/{token} — must be reachable while signed out
+  "/_next",         // Next internals
 ];
 
 function isPublicPath(pathname: string): boolean {
