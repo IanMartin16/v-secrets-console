@@ -631,3 +631,32 @@
     animation: none !important;
   }
 }
+
+/* Subtle shimmer across the masked value — suggests live, protected data. */
+.vaultValMasked {
+  background: linear-gradient(
+    90deg,
+    var(--text-dim) 0%,
+    var(--text-dim) 40%,
+    var(--gold-hi) 50%,
+    var(--text-dim) 60%,
+    var(--text-dim) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: maskedShimmer 3.5s ease-in-out infinite;
+}
+
+@keyframes maskedShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vaultValMasked {
+    animation: none;
+    color: var(--text-muted);
+  }
+}
