@@ -46,7 +46,7 @@ const PLANS: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    price: "$29",
+    price: "$399",
     cadence: "per month",
     tagline: "For solo developers and small teams shipping to production.",
     features: [
@@ -62,7 +62,7 @@ const PLANS: Plan[] = [
   {
     id: "business",
     name: "Business",
-    price: "$199",
+    price: "$999",
     cadence: "per month",
     tagline: "For teams that need isolation, retention, and compliance evidence.",
     features: [
