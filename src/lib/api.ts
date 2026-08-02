@@ -272,3 +272,11 @@ export function createPortalSession() {
 export function getSubscription() {
   return apiRequest<SubscriptionStatus>("/billing/subscription");
 }
+
+export function requestMagicLink(email: string) {
+  return apiRequest<{ status: string }>("/auth/magic-link/request", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ email }),
+  });
+}

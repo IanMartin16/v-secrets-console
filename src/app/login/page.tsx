@@ -6,12 +6,12 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
 
+import { login, requestMagicLink } from "@/lib/api";
+import { saveToken } from "@/lib/auth";
+
 import styles from "./login.module.css";
 
-// ---------------------------------------------------------------------------
-// LoginContent: all logic that touches useSearchParams lives here.
-// Must be wrapped in <Suspense> so Next.js can prerender the shell.
-// ---------------------------------------------------------------------------
+type Mode = "link" | "password";
 
 function LoginContent() {
   const router = useRouter();
@@ -19,6 +19,7 @@ function LoginContent() {
   const { status } = useSession();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
 
+  const [mode, setMode] = useState<Mode>("link");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,8 +27,6 @@ function LoginContent() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Already signed in? Skip the form. The session is the only auth signal —
-  // no localStorage check, so a stale token can't bounce the user around.
   useEffect(() => {
     if (status === "authenticated") {
       router.replace(callbackUrl);
@@ -41,14 +40,27 @@ function LoginContent() {
     setOauthLoading(false);
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleMagicLink(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setLoading(true);
 
-    // Password auth goes through NextAuth's Credentials provider, which calls
-    // FastAPI /auth/login server-side. This gives us a session cookie that the
-    // middleware can read — localStorage alone is invisible to the edge.
+    try {
+      // The API always answers 202, whether or not the address has an account.
+      // Nothing here should reveal which — so we redirect the same way either way.
+      await requestMagicLink(email);
+      router.push(`/auth/check-email?email=${encodeURIComponent(email)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send the sign-in link.");
+      setLoading(false);
+    }
+  }
+
+  async function handlePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+
     const result = await signIn("password", {
       email,
       password,
@@ -61,7 +73,6 @@ function LoginContent() {
       return;
     }
 
-    // Session cookie is set; navigate and let the server re-evaluate
     router.push(callbackUrl);
     router.refresh();
   }
@@ -101,8 +112,8 @@ function LoginContent() {
             <span className={styles.accent}>runtime-safe</span> keys.
           </h1>
           <p className={styles.brandLede}>
-            Sign in to manage application secrets, rotate credentials, and issue scoped runtime keys
-            for your services.
+            Sign in to manage application secrets, rotate credentials, and issue scoped runtime
+            keys for your services.
           </p>
 
           <div className={styles.vaultDemo} aria-label="Example: how V-Secrets stores a secret">
@@ -165,7 +176,11 @@ function LoginContent() {
         <div className={styles.authCard}>
           <header className={styles.authCardHead}>
             <h2 className={styles.authCardTitle}>Welcome back</h2>
-            <p className={styles.authCardSubtitle}>Sign in to the V-Secrets console.</p>
+            <p className={styles.authCardSubtitle}>
+              {mode === "link"
+                ? "We'll email you a link — no password needed."
+                : "Sign in with your email and password."}
+            </p>
           </header>
 
           <div className={styles.oauthGroup}>
@@ -184,66 +199,122 @@ function LoginContent() {
 
           <div className={styles.divider}>or</div>
 
-          <form className={styles.authForm} onSubmit={handleSubmit} noValidate>
-            <div className={styles.field}>
-              <label htmlFor="email" className={styles.fieldLabel}>
-                Email
-              </label>
-              <div className={styles.inputWrap}>
-                <input
-                  id="email"
-                  type="email"
-                  className={styles.input}
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@company.com"
-                  autoComplete="email"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className={styles.field}>
-              <div className={styles.fieldLabelRow}>
-                <label htmlFor="password" className={styles.fieldLabel}>
-                  Password
+          {mode === "link" ? (
+            <form className={styles.authForm} onSubmit={handleMagicLink} noValidate>
+              <div className={styles.field}>
+                <label htmlFor="email" className={styles.fieldLabel}>
+                  Email
                 </label>
-                <Link href="/forgot-password" className={styles.fieldHelp}>
-                  Forgot?
-                </Link>
+                <div className={styles.inputWrap}>
+                  <input
+                    id="email"
+                    type="email"
+                    className={styles.input}
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@company.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
               </div>
-              <div className={styles.inputWrap}>
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  className={styles.input}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                  required
-                />
-                <button
-                  type="button"
-                  className={styles.passwordToggle}
-                  onClick={() => setShowPassword((value) => !value)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-                </button>
-              </div>
-            </div>
 
-            {error ? (
-              <div className={styles.errorMessage} role="alert">
-                {error}
-              </div>
-            ) : null}
+              {error ? (
+                <div className={styles.errorMessage} role="alert">
+                  {error}
+                </div>
+              ) : null}
 
-            <button type="submit" className={styles.submitBtn} disabled={loading}>
-              {loading ? "Signing in…" : "Sign in with password"}
+              <button type="submit" className={styles.submitBtn} disabled={loading}>
+                {loading ? "Sending…" : "Email me a sign-in link"}
+              </button>
+            </form>
+          ) : (
+            <form className={styles.authForm} onSubmit={handlePassword} noValidate>
+              <div className={styles.field}>
+                <label htmlFor="email" className={styles.fieldLabel}>
+                  Email
+                </label>
+                <div className={styles.inputWrap}>
+                  <input
+                    id="email"
+                    type="email"
+                    className={styles.input}
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@company.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <div className={styles.fieldLabelRow}>
+                  <label htmlFor="password" className={styles.fieldLabel}>
+                    Password
+                  </label>
+                  <Link href="/forgot-password" className={styles.fieldHelp}>
+                    Forgot?
+                  </Link>
+                </div>
+                <div className={styles.inputWrap}>
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    className={styles.input}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={styles.passwordToggle}
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {error ? (
+                <div className={styles.errorMessage} role="alert">
+                  {error}
+                </div>
+              ) : null}
+
+              <button type="submit" className={styles.submitBtn} disabled={loading}>
+                {loading ? "Signing in…" : "Sign in"}
+              </button>
+            </form>
+          )}
+
+          <div className={styles.authCardFoot}>
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "link" ? "password" : "link");
+                setError("");
+              }}
+              style={{
+                appearance: "none",
+                background: "none",
+                border: "none",
+                color: "var(--text-muted)",
+                fontSize: "13px",
+                cursor: "pointer",
+                padding: 0,
+                textDecoration: "underline",
+                textUnderlineOffset: "3px",
+                textDecorationColor: "rgba(255,255,255,0.15)",
+              }}
+            >
+              {mode === "link" ? "Sign in with a password instead" : "Email me a link instead"}
             </button>
-          </form>
+          </div>
 
           <div className={styles.authCardFoot}>
             New to V-Secrets? <Link href="/register">Create a workspace</Link>
@@ -253,11 +324,6 @@ function LoginContent() {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// LoginPage (default export): wraps LoginContent in Suspense so Next.js can
-// safely prerender the shell before searchParams resolves on the client.
-// ---------------------------------------------------------------------------
 
 export default function LoginPage() {
   return (

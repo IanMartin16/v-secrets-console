@@ -12,6 +12,7 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Credentials from "next-auth/providers/credentials";
+import { requestMagicLink } from "./lib/api";
 
 // -----------------------------------------------------------------------------
 // FastAPI bridges
@@ -97,6 +98,7 @@ async function loginWithFastAPI(
       return null;
     }
 
+
     const tokens = (await loginRes.json()) as ProvisionedTokens;
 
     // Fetch the profile so the session carries a name and id
@@ -119,6 +121,46 @@ async function loginWithFastAPI(
     return null;
   }
 }
+
+  /** Magic link path: redeem a one-time token for a session. */
+  async function redeemMagicLink(
+    token: string,
+  ): Promise<{ tokens: ProvisionedTokens; profile: { id?: string; full_name?: string; email?: string } } | null> {
+    const apiUrl = getApiUrl();
+    if (!apiUrl) return null;
+
+    try {
+      const verifyRes = await fetch(`${apiUrl}/auth/magic-link/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+        cache: "no-store",
+      });
+
+      if (!verifyRes.ok) {
+        // 401 = expired, already used, or unknown token
+        return null;
+      }
+
+      const tokens = (await verifyRes.json()) as ProvisionedTokens;
+
+      let profile: { id?: string; full_name?: string; email?: string } = {};
+      try {
+        const meRes = await fetch(`${apiUrl}/users/me`, {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+          cache: "no-store",
+        });
+        if (meRes.ok) profile = await meRes.json();
+      } catch {
+      // Non-fatal — the session works without the profile
+      }
+
+      return { tokens, profile };
+    } catch (err) {
+      console.error("[auth] magic link network error:", err);
+      return null;
+    }
+  }
 
 /** Silent refresh: exchange a refresh token for a fresh access token. */
 async function refreshWithFastAPI(
@@ -193,10 +235,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
 
-    // Note: Resend / magic-link provider intentionally omitted.
-    // Auth.js email providers require a database adapter, which conflicts with
-    // the FastAPI-owned user model. Magic links will be implemented via FastAPI
-    // and surfaced here as a second Credentials-style provider.
+    Credentials({
+      id: "magic-link",
+      name: "Email link",
+      credentials: {
+        token: { label: "Token", type: "text" },
+      },
+      async authorize(credentials) {
+        const token = credentials?.token as string | undefined;
+        if (!token) return null;
+
+        const result = await redeemMagicLink(token);
+        if (!result) return null;
+
+        return {
+          id: result.profile.id ?? result.profile.email ?? token.slice(0, 12),
+          email: result.profile.email ?? "",
+          name: result.profile.full_name ?? null,
+          vsecretsAccessToken: result.tokens.access_token,
+          vsecretsRefreshToken: result.tokens.refresh_token,
+        };
+      },
+    }),
   ],
 
   pages: {
@@ -206,10 +266,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   callbacks: {
     async signIn({ user, account }) {
-      // Credentials provider already validated everything in authorize()
-      if (account?.provider === "password") return true;
+      // Credentials providers already validated everything in authorize()
+      if (account?.provider === "password" || account?.provider === "magic-link") {
+        return true;
+      }
 
-      // OAuth providers must give us an email
       if (!user.email) {
         console.warn("[auth] signIn rejected: no email from provider", {
           provider: account?.provider,
@@ -254,7 +315,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // -------- Initial sign-in --------
 
-      if (account.provider === "password") {
+      if (account.provider === "password" || account.provider === "magic-link") {
         // Tokens were already fetched inside authorize()
         const u = user as typeof user & {
           vsecretsAccessToken?: string;

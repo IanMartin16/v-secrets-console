@@ -50,7 +50,7 @@ const PLANS: Plan[] = [
     cadence: "per month",
     tagline: "For solo developers and small teams shipping to production.",
     features: [
-      "10 projects",
+      "20 projects",
       "500 secrets",
       "20 runtime keys",
       "90-day audit retention",
