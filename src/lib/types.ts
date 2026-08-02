@@ -120,3 +120,15 @@ export type ProjectUpdateInput = {
   environment?: string;
   color?: string;
 };
+
+export type SubscriptionStatus = {
+  plan: string;
+  status?: string | null;
+  cancel_at_period_end: boolean;
+  current_period_end?: number | null;
+  has_subscription: boolean;
+};
+
+export type CheckoutSession = {
+  url: string;
+};

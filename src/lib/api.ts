@@ -12,6 +12,8 @@ import type {
   SecretRevealResponse,
   UserProfile,
   AuditLog,
+  SubscriptionStatus,
+  CheckoutSession,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_VSECRETS_API_URL;
@@ -248,4 +250,25 @@ export function revokeApiKey(apiKeyId: string) {
 
 export function getAuditLogs(limit = 50) {
   return apiRequest<AuditLog[]>(`/audit-logs?limit=${limit}`);
+}
+
+// ---------------------------------------------------------------------------
+// Billing
+// ---------------------------------------------------------------------------
+
+export function createCheckoutSession(plan: string) {
+  return apiRequest<CheckoutSession>("/billing/checkout-session", {
+    method: "POST",
+    body: JSON.stringify({ plan }),
+  });
+}
+
+export function createPortalSession() {
+  return apiRequest<CheckoutSession>("/billing/portal-session", {
+    method: "POST",
+  });
+}
+
+export function getSubscription() {
+  return apiRequest<SubscriptionStatus>("/billing/subscription");
 }
