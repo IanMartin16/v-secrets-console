@@ -624,11 +624,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page *,
-  .page *::before,
-  .page *::after {
-    transition: none !important;
-    animation: none !important;
+  .vaultValMasked {
+    animation: none;
+    color: var(--text-muted);
   }
 }
 
@@ -652,11 +650,4 @@
 @keyframes maskedShimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -100% 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .vaultValMasked {
-    animation: none;
-    color: var(--text-muted);
-  }
 }
