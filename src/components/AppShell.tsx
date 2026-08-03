@@ -181,7 +181,7 @@ export function AppShell({ title, children }: AppShellProps) {
           <div className={styles.planCard}>
             <div className={styles.planCardHead}>
               <span className={styles.planCardLabel}>Plan</span>
-              <span className={styles.planCardName}>Free</span>
+              <span className={styles.planCardName}>{user?.plan ?? "free"}</span>
             </div>
             <div className={styles.planProgress}>
               <div className={styles.planProgressRow}>
@@ -197,9 +197,15 @@ export function AppShell({ title, children }: AppShellProps) {
                 />
               </div>
             </div>
-            <Link href="/settings/billing" className={styles.planCta}>
-              Upgrade to Pro
-            </Link>
+            {(user?.plan ?? "free") === "free" ? (
+              <Link href="/settings/billing" className={styles.planCta}>
+                Upgrade to Pro
+              </Link>
+            ) : (
+              <Link href="/settings/billing" className={styles.planCta}>
+                Manage plan
+              </Link>
+            )}
           </div>
         </div>
       </aside>
