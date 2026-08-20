@@ -11,6 +11,9 @@ import type { ApiKey, Project, UserProfile } from "@/lib/types";
 
 import styles from "@/components/AppShell.module.css";
 
+import { RotateCw } from "lucide-react";
+import { RotateKeyModal } from "@/components/RotateKeyModal";
+
 // Full scope catalogue, mirroring ALLOWED_API_KEY_SCOPES in the backend.
 // The read/reveal split matters: `secrets:read` returns metadata only, while
 // `secrets:reveal` is what actually decrypts a value.
@@ -98,6 +101,8 @@ export default function SettingsPage() {
   // The one-time reveal of a freshly created key
   const [newKey, setNewKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const [rotatingKey, setRotatingKey] = useState<ApiKey | null>(null);
 
   async function loadAll() {
     try {
@@ -551,6 +556,38 @@ export default function SettingsPage() {
                           <span className={styles.tableActor}>—</span>
                         )}
                       </td>
+                      <td>
+                        {key.grace_expires_at && new Date(key.grace_expires_at) > new Date() ? (
+                          <span className={styles.rotatingBadge}>
+                            expires {formatGraceDeadline(key.grace_expires_at)}
+                          </span>
+                        ) : (
+                        <span className={styles.tableStatus}>
+                          {key.is_active !== false ? (
+                        <>
+                        <span className={styles.tableStatusDot} />
+                          active
+                        </>
+                      ) : (
+                        <span style={{ color: "var(--text-dim)" }}>revoked</span>
+                      )}
+                        </span>
+                      )}
+                    </td>
+                      <td style={{ textAlign: "right" }}>
+                        {key.is_active !== false ? (
+                          <div style={{ display: "inline-flex", gap: 4 }}>
+                            <Button variant="ghost" onClick={() => setRotatingKey(key)} title="Rotate">
+                              <RotateCw size={14} style={{ verticalAlign: "-2px" }} />
+                            </Button>
+                            <Button variant="ghost" onClick={() => handleRevoke(key.id, key.name)} title="Revoke">
+                              <Trash2 size={14} style={{ verticalAlign: "-2px" }} />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className={styles.tableActor}>—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -559,6 +596,13 @@ export default function SettingsPage() {
           )}
         </div>
       </section>
+      {rotatingKey ? (
+  <RotateKeyModal
+    apiKey={rotatingKey}
+    onClose={() => setRotatingKey(null)}
+    onRotated={loadAll}
+  />
+) : null}
     </AppShell>
   );
 }
@@ -578,4 +622,12 @@ function describeScopes(scopes?: string[] | null): string {
   if (set.has("secrets:write")) return "deploy";
   if (set.has("secrets:reveal")) return "runtime";
   return "inventory";
+}
+
+function formatGraceDeadline(timestamp: string): string {
+  const date = new Date(timestamp);
+  const hours = Math.round((date.getTime() - Date.now()) / 3600000);
+  if (hours < 1) return "in <1h";
+  if (hours < 24) return `in ${hours}h`;
+  return `in ${Math.round(hours / 24)}d`;
 }

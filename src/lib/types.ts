@@ -132,3 +132,18 @@ export type SubscriptionStatus = {
 export type CheckoutSession = {
   url: string;
 };
+
+export type ApiKey = {
+  // ... existing fields ...
+  rotated_to_id?: string | null;
+  rotated_at?: string | null;
+  grace_expires_at?: string | null;
+};
+
+export type ApiKeyRotateResponse = {
+  new_key: ApiKeyCreateResponse;   // includes api_key, shown once
+  old_key_id: string;
+  old_key_prefix: string;
+  grace_expires_at: string | null;
+  message: string;
+};
