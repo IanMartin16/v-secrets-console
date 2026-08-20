@@ -356,27 +356,121 @@
 }
 
 .oauthGroup {
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.oauthBtn {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 500;
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
+.oauthHeader {
   display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.oauthBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 10px;
+  border: 1px solid rgba(234, 196, 106, 0.28);
+  border-radius: 999px;
+  background: rgba(234, 196, 106, 0.08);
+  color: #eac46a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.oauthBtn {
+  width: 100%;
+  min-height: 64px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
+
+  border: 1px solid rgba(234, 196, 106, 0.42);
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.065),
+      rgba(255, 255, 255, 0.025)
+    );
+
+  color: #f7f3ea;
+  font-size: 1rem;
+  font-weight: 800;
+
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.05s ease;
+
+  box-shadow:
+    0 0 0 1px rgba(234, 196, 106, 0.06),
+    0 18px 45px rgba(0, 0, 0, 0.35),
+    0 0 34px rgba(234, 196, 106, 0.08);
+
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.oauthBtn:hover:not(:disabled) {
+  border-color: rgba(234, 196, 106, 0.75);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.09),
+      rgba(255, 255, 255, 0.035)
+    );
+
+  box-shadow:
+    0 0 0 1px rgba(234, 196, 106, 0.12),
+    0 22px 55px rgba(0, 0, 0, 0.45),
+    0 0 42px rgba(234, 196, 106, 0.14);
+
+  transform: translateY(-1px);
+}
+
+.oauthBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.oauthBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.oauthBtnLoading {
+  border-color: rgba(234, 196, 106, 0.28);
+}
+
+.oauthIcon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oauthIcon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.oauthText {
+  line-height: 1;
+}
+
+.oauthHint {
+  margin: 0;
+  color: rgba(247, 243, 234, 0.48);
+  font-size: 0.82rem;
+  text-align: center;
 }
 
 .oauthBtn:hover {

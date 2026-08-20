@@ -112,8 +112,8 @@ function LoginContent() {
             <span className={styles.accent}>runtime-safe</span> keys.
           </h1>
           <p className={styles.brandLede}>
-            Sign in to manage application secrets, rotate credentials, and issue scoped runtime
-            keys for your services.
+            Manage app secrets, rotate credentials, and issue scoped runtime keys without exposing
+            sensitive values in your services.
           </p>
 
           <div className={styles.vaultDemo} aria-label="Example: how V-Secrets stores a secret">
@@ -160,6 +160,7 @@ function LoginContent() {
           <div className={styles.trustRow} aria-label="Security stack">
             <span className={styles.trustPill}>AES-256-GCM</span>
             <span className={styles.trustPill}>Argon2id</span>
+            <span className={styles.trustPill}>Passwordless</span>
             <span className={styles.trustPill}>Zero-knowledge ready</span>
           </div>
           <div className={styles.brandMeta}>
@@ -183,19 +184,33 @@ function LoginContent() {
             </p>
           </header>
 
-          <div className={styles.oauthGroup}>
-            <button
-              type="button"
-              className={styles.oauthBtn}
-              onClick={handleGithub}
-              disabled={oauthLoading}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+         <div className={styles.oauthGroup}>
+          <div className={styles.oauthHeader}>
+            <span className={styles.oauthBadge}>Recommended for developers</span>
+          </div>
+
+          <button
+            type="button"
+            className={`${styles.oauthBtn} ${oauthLoading ? styles.oauthBtnLoading : ""}`}
+            onClick={handleGithub}
+            disabled={oauthLoading}
+            aria-busy={oauthLoading}
+          >
+            <span className={styles.oauthIcon} aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 .5a11.5 11.5 0 0 0-3.63 22.42c.58.1.79-.25.79-.56v-2c-3.24.7-3.92-1.4-3.92-1.4-.53-1.34-1.3-1.69-1.3-1.69-1.06-.72.08-.7.08-.7 1.17.08 1.79 1.2 1.79 1.2 1.04 1.78 2.73 1.27 3.4.97.1-.76.4-1.27.74-1.56-2.58-.29-5.3-1.29-5.3-5.75 0-1.27.45-2.31 1.19-3.13-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.19a11 11 0 0 1 5.79 0c2.2-1.5 3.17-1.19 3.17-1.19.63 1.59.23 2.77.12 3.06.74.82 1.19 1.86 1.19 3.13 0 4.47-2.72 5.46-5.32 5.75.41.35.78 1.06.78 2.13v3.16c0 .31.21.67.79.56A11.5 11.5 0 0 0 12 .5z" />
               </svg>
+            </span>
+
+            <span className={styles.oauthText}>
               {oauthLoading ? "Connecting to GitHub…" : "Continue with GitHub"}
-            </button>
-          </div>
+            </span>
+          </button>
+
+          <p className={styles.oauthHint}>
+            Secure access with your developer identity.
+          </p>
+        </div>
 
           <div className={styles.divider}>or</div>
 
@@ -293,6 +308,9 @@ function LoginContent() {
           )}
 
           <div className={styles.authCardFoot}>
+            <div className={styles.authCardFoot}>
+              🔒 Passwordless by default
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -317,7 +335,7 @@ function LoginContent() {
           </div>
 
           <div className={styles.authCardFoot}>
-            New to V-Secrets? <Link href="/register">Create a workspace</Link>
+            New to V-Secrets? <Link href="/register">Start by creating a workspace</Link>
           </div>
         </div>
       </main>
