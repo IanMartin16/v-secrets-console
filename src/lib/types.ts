@@ -74,6 +74,9 @@ export type ApiKey = {
   created_at?: string;
   last_used_at?: string | null;
   is_active?: boolean;
+  rotated_to_id?: string | null;
+  rotated_at?: string | null;
+  grace_expires_at?: string | null;
 };
 
 export type ApiKeyCreatePayload = {
@@ -131,13 +134,6 @@ export type SubscriptionStatus = {
 
 export type CheckoutSession = {
   url: string;
-};
-
-export type ApiKey = {
-  // ... existing fields ...
-  rotated_to_id?: string | null;
-  rotated_at?: string | null;
-  grace_expires_at?: string | null;
 };
 
 export type ApiKeyRotateResponse = {

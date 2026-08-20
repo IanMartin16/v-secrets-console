@@ -6,8 +6,8 @@ import { Check, Copy, ShieldAlert, Trash2 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
-import { createApiKey, getApiKeys, getMe, getProjects, revokeApiKey } from "@/lib/api";
-import type { ApiKey, Project, UserProfile } from "@/lib/types";
+import { createApiKey, getApiKeys, getMe, getProjects, revokeApiKey, rotateApiKey } from "@/lib/api";
+import type { ApiKey, Project, UserProfile, ApiKeyRotateResponse } from "@/lib/types";
 
 import styles from "@/components/AppShell.module.css";
 
