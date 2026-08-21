@@ -6,6 +6,7 @@ import type {
   ProjectCreatePayload,
   ApiKeyCreateResponse,
   ApiKey,
+  ApiKeyRotateResponse,
   ApiKeyCreatePayload,
   Secret,
   SecretCreatePayload,
