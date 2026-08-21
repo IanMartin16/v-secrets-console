@@ -7,7 +7,7 @@ import { Check, Copy, ShieldAlert, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
 import { createApiKey, getApiKeys, getMe, getProjects, revokeApiKey, rotateApiKey } from "@/lib/api";
-import type { ApiKey, Project, UserProfile, ApiKeyRotateResponse } from "@/lib/types";
+import type { ApiKey, Project, UserProfile } from "@/lib/types";
 
 import styles from "@/components/AppShell.module.css";
 
@@ -530,18 +530,6 @@ export default function SettingsPage() {
                           {key.expires_at
                             ? new Date(key.expires_at).toLocaleDateString()
                             : "never"}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={styles.tableStatus}>
-                          {key.is_active !== false ? (
-                            <>
-                              <span className={styles.tableStatusDot} />
-                              active
-                            </>
-                          ) : (
-                            <span style={{ color: "var(--text-dim)" }}>revoked</span>
-                          )}
                         </span>
                       </td>
                       <td style={{ textAlign: "right" }}>
