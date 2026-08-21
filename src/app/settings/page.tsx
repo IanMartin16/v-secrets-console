@@ -532,18 +532,6 @@ export default function SettingsPage() {
                             : "never"}
                         </span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
-                        {key.is_active !== false ? (
-                          <Button
-                            variant="ghost"
-                            onClick={() => handleRevoke(key.id, key.name)}
-                          >
-                            <Trash2 size={14} style={{ verticalAlign: "-2px" }} />
-                          </Button>
-                        ) : (
-                          <span className={styles.tableActor}>—</span>
-                        )}
-                      </td>
                       <td>
                         {key.grace_expires_at && new Date(key.grace_expires_at) > new Date() ? (
                           <span className={styles.rotatingBadge}>
