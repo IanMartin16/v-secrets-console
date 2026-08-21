@@ -244,6 +244,13 @@ export function revokeApiKey(apiKeyId: string) {
   });
 }
 
+export function rotateApiKey(apiKeyId: string, gracePeriodHours: number) {
+  return apiRequest<ApiKeyRotateResponse>(`/api-keys/${apiKeyId}/rotate`, {
+    method: "POST",
+    body: JSON.stringify({ grace_period_hours: gracePeriodHours }),
+  });
+}
+
 // -----------------------------------------------------------------------------
 // Audit
 // -----------------------------------------------------------------------------
@@ -278,12 +285,5 @@ export function requestMagicLink(email: string) {
     method: "POST",
     auth: false,
     body: JSON.stringify({ email }),
-  });
-}
-
-export function rotateApiKey(apiKeyId: string, gracePeriodHours: number) {
-  return apiRequest<ApiKeyRotateResponse>(`/api-keys/${apiKeyId}/rotate`, {
-    method: "POST",
-    body: JSON.stringify({ grace_period_hours: gracePeriodHours }),
   });
 }
