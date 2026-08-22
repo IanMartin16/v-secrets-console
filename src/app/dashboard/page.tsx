@@ -12,9 +12,8 @@ import {
 
 import { AppShell } from "@/components/AppShell";
 import { StatCard } from "@/components/StatCard";
-import type { Project, UserProfile } from "@/lib/types";
+import type { Project, UserProfile, AuditLog } from "@/lib/types";
 import { getAuditLogs, getMe, getProjects } from "@/lib/api";
-import type { AuditLog, Project, UserProfile } from "@/lib/types";
 
 import styles from "@/components/AppShell.module.css";
 
