@@ -46,13 +46,13 @@ const PLANS: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    price: "$399",
+    price: "$29",
     cadence: "per month",
     tagline: "For solo developers and small teams shipping to production.",
     features: [
       "20 projects",
-      "500 secrets",
-      "20 runtime keys",
+      "1000 secrets",
+      "50 runtime keys",
       "90-day audit retention",
       "Granular key scopes",
       "Email support",
@@ -62,13 +62,13 @@ const PLANS: Plan[] = [
   {
     id: "business",
     name: "Business",
-    price: "$999",
+    price: "$129",
     cadence: "per month",
     tagline: "For teams that need isolation, retention, and compliance evidence.",
     features: [
-      "Unlimited projects",
+      "100 projects",
       "10,000 secrets",
-      "Unlimited runtime keys",
+      "200 runtime keys",
       "1-year audit retention",
       "Dynamic database credentials",
       "Priority support",
