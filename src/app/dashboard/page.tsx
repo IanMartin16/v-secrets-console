@@ -12,8 +12,9 @@ import {
 
 import { AppShell } from "@/components/AppShell";
 import { StatCard } from "@/components/StatCard";
-import { getMe, getProjects } from "@/lib/api";
 import type { Project, UserProfile } from "@/lib/types";
+import { getAuditLogs, getMe, getProjects } from "@/lib/api";
+import type { AuditLog, Project, UserProfile } from "@/lib/types";
 
 import styles from "@/components/AppShell.module.css";
 
@@ -21,13 +22,21 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState("");
+  const [activity, setActivity] = useState<AuditLog[]>([]);
 
   useEffect(() => {
     async function load() {
       try {
-        const [profile, projectList] = await Promise.all([getMe(), getProjects()]);
+        const [profile, projectList, logs] = await Promise.all([
+          getMe(),
+          getProjects(),
+        // Activity is supporting detail — a failure here shouldn't blank the
+        // whole dashboard, so it resolves to an empty list instead of throwing.
+          getAuditLogs(5).catch(() => []),
+        ]);
         setUser(profile);
         setProjects(projectList);
+        setActivity(Array.isArray(logs) ? logs : []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard");
       }
@@ -154,15 +163,70 @@ export default function DashboardPage() {
         </div>
 
         <div className={styles.card}>
-          <div className={styles.empty}>
-            <h3 className={styles.emptyTitle}>No activity yet</h3>
-            <p className={styles.emptyDesc}>
-              Events will appear here as you use the vault.
-            </p>
-            <span className={styles.emptyHint}>reads · writes · rotations · reveals</span>
+          {activity.length === 0 ? (
+            <div className={styles.empty}>
+              <h3 className={styles.emptyTitle}>No activity yet</h3>
+              <p className={styles.emptyDesc}>
+                Events will appear here as you use the vault.
+              </p>
+              <span className={styles.emptyHint}>reads · writes · rotations · reveals</span>
+            </div>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Action</th>
+                    <th>Resource</th>
+                    <th>Auth</th>
+                    <th style={{ textAlign: "right" }}>Status</th>
+                  </tr>
+                </thead>
+              <tbody>
+                {activity.map((log, index) => {
+                  const status =
+                    (log as AuditLog & { status_code?: number }).status_code ?? 0;
+
+                  return (
+                    <tr key={log.id ?? index}>
+                      <td>
+                        <span className={styles.tableTimestamp}>
+                          {formatWhen(log.created_at)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={styles.logAction}>
+                          {log.action ?? "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={styles.tableActor}>
+                          {log.resource_type ?? "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={styles.tableActor}>
+                          {log.api_key_id ? "runtime key" : "session"}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <span
+                          className={status >= 400 ? styles.logStatusFail : styles.logStatusOk}
+                          style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}
+                        >
+                          {status || "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
-      </section>
+        )}
+      </div>
+    </section>
     </AppShell>
   );
 }
@@ -173,4 +237,24 @@ function getFirstName(fullName?: string | null) {
   if (!cleanName) return "Developer";
   const firstName = cleanName.split(" ")[0];
   return firstName.charAt(0).toUpperCase() + firstName.slice(1);
+}
+
+function formatWhen(timestamp?: string | null): string {
+  if (!timestamp) return "—";
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const diffMin = Math.floor((Date.now() - date.getTime()) / 60000);
+
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString();
 }

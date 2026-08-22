@@ -161,7 +161,7 @@ function LoginContent() {
             <span className={styles.trustPill}>AES-256-GCM</span>
             <span className={styles.trustPill}>Argon2id</span>
             <span className={styles.trustPill}>Passwordless</span>
-            <span className={styles.trustPill}>Zero-knowledge ready</span>
+            <span className={styles.trustPill}>Scoped access</span>
           </div>
           <div className={styles.brandMeta}>
             v1.0 soft launch · powered by{" "}

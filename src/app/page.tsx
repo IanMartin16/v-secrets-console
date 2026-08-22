@@ -38,6 +38,7 @@ export default function LandingPage() {
           <a href="#how" className={styles.navLink}>How it works</a>
           <a href="#security" className={styles.navLink}>Security</a>
           <a href="#pricing" className={styles.navLink}>Pricing</a>
+          <Link href="/docs" className={styles.navLink}>Docs</Link>
           <Link href="/login" className={styles.navLink}>Sign in</Link>
           <Link href="/register" className={styles.navCta}>Start free</Link>
         </div>
@@ -468,6 +469,7 @@ const { value } = await res.json();`}</pre>
             <a href="#how" className={styles.footerLink}>How it works</a>
             <a href="#security" className={styles.footerLink}>Security</a>
             <a href="#pricing" className={styles.footerLink}>Pricing</a>
+            <Link href="/docs" className={styles.footerLink}>Docs</Link>
             <Link href="/login" className={styles.footerLink}>Sign in</Link>
             <a href="mailto:support@vsecrets.dev" className={styles.footerLink}>Contact</a>
           </div>

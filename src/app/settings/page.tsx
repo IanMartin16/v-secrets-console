@@ -508,7 +508,14 @@ export default function SettingsPage() {
                   {apiKeys.map((key) => (
                     <tr key={key.id}>
                       <td>
-                        <div className={styles.tableProjectName}>{key.name}</div>
+                        <div className={styles.tableProjectName}>
+                          {key.name}
+                          {key.rotated_to_id ? (
+                            <span className={styles.tableActor} style={{ marginLeft: 8, fontWeight: 400 }}>
+                              (rotated)
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td>
                         <span className={styles.tableSecretName}>{key.key_prefix}…</span>
@@ -573,12 +580,12 @@ export default function SettingsPage() {
         </div>
       </section>
       {rotatingKey ? (
-  <RotateKeyModal
-    apiKey={rotatingKey}
-    onClose={() => setRotatingKey(null)}
-    onRotated={loadAll}
-  />
-) : null}
+        <RotateKeyModal
+          apiKey={rotatingKey}
+          onClose={() => setRotatingKey(null)}
+          onRotated={loadAll}
+        />
+      ) : null}
     </AppShell>
   );
 }
