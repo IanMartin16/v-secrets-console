@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import Script from "next/script";
+import { PostHogProvider } from "@/components/PostHogProvider";
 
 import { Providers } from "@/components/Providers";
 
@@ -45,13 +45,10 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${geistSans.variable} ${geistMono.variable}`}
     >
-    <Script
-      defer
-      data-domain="vsecrets.dev"
-      src="https://plausible.io/js/script.js"
-    />
       <body>
-        <Providers>{children}</Providers>
+        <PostHogProvider>
+          <Providers>{children}</Providers>
+        </PostHogProvider>
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { Eye, EyeOff } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 
 import { register } from "@/lib/api";
 
@@ -20,6 +21,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const posthog = usePostHog();
 
   // Already signed in? Skip the form.
   useEffect(() => {
@@ -36,6 +38,8 @@ export default function RegisterPage() {
     await signIn("github", { callbackUrl: "/dashboard" });
     setOauthLoading(false);
   }
+
+  posthog?.capture("signup_completed", { method: "password" });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,10 +72,13 @@ export default function RegisterPage() {
       setLoading(false);
       return;
     }
+    
 
     router.push("/dashboard");
     router.refresh();
   }
+  
+  posthog?.capture("signup_started", { method: "github" });
 
   return (
     <div className={styles.page}>

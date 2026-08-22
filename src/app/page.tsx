@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 import styles from "./landing.module.css";
+import { TrackedLink } from "@/components/TrackedLink";
 
 export const metadata: Metadata = {
   title: "V-Secrets — Encrypted secrets management without the setup",
@@ -62,14 +63,18 @@ export default function LandingPage() {
           </p>
 
           <div className={styles.heroActions}>
-            <Link href="/register" className={styles.primaryCta}>
+            <TrackedLink
+              href="/register"
+              event="cta_clicked"
+              properties={{ location: "hero" }}
+              className={styles.primaryCta}
+            >
               Start free — no card
-            </Link>
+            </TrackedLink>
             <a href="#how" className={styles.secondaryCta}>
               See how it works
             </a>
           </div>
-
           <p className={styles.heroFootnote}>
             Free tier: 2 projects, 25 secrets, 2 runtime keys. No time limit.
           </p>
@@ -389,7 +394,7 @@ const { value } = await res.json();`}</pre>
                 <li>Full encryption and audit log</li>
               </ul>
               <Link href="/register" className={styles.priceCta}>
-                Start free
+                Start free, upgrade later
               </Link>
             </div>
 
@@ -407,9 +412,14 @@ const { value } = await res.json();`}</pre>
                 <li>90-day audit retention</li>
                 <li>Email support</li>
               </ul>
-              <Link href="/register" className={styles.priceCtaGold}>
+              <TrackedLink
+                href="/register"
+                event="cta_clicked"
+                properties={{ location: "pricing_pro" }}
+                className={styles.priceCtaGold}
+              >
                 Start free, upgrade later
-              </Link>
+              </TrackedLink>
             </div>
 
             <div className={styles.priceCard}>
@@ -451,9 +461,14 @@ const { value } = await res.json();`}</pre>
             Free tier, no card, no sales call. If it isn't running in five minutes, it isn't
             doing its job.
           </p>
-          <Link href="/register" className={styles.primaryCta}>
+          <TrackedLink
+            href="/register"
+            event="cta_clicked"
+            properties={{ location: "footer" }}
+            className={styles.primaryCta}
+          >
             Create your workspace
-          </Link>
+          </TrackedLink>
         </div>
       </section>
 
