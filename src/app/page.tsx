@@ -425,7 +425,7 @@ const { value } = await res.json();`}</pre>
             <div className={styles.priceCard}>
               <div className={styles.priceName}>Business</div>
               <div className={styles.priceAmount}>
-                $199<span className={styles.priceCadence}>USD / month</span>
+                $129<span className={styles.priceCadence}>USD / month</span>
               </div>
               <p className={styles.priceFor}>Teams with compliance requirements</p>
               <ul className={styles.priceList}>
